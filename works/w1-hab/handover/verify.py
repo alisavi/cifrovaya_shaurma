@@ -21,12 +21,24 @@ from sklearn.metrics import roc_auc_score
 HANDOVER = Path(__file__).resolve().parent
 
 
-def sha256(path: Path) -> str:
+def sha256(path: Path, normalize_newlines: bool = False) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
+            if normalize_newlines:
+                chunk = chunk.replace(b"\r\n", b"\n")
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def file_matches(path: Path, expected: str) -> bool:
+    """Compare bytes; on Windows also accept a CRLF checkout with identical content."""
+    if sha256(path) == expected:
+        return True
+    if path.suffix == ".csv" and sha256(path, normalize_newlines=True) == expected:
+        print(f"note: {path.name} checked out with CRLF; content matches after LF normalisation")
+        return True
+    return False
 
 
 def main() -> int:
@@ -34,7 +46,9 @@ def main() -> int:
     test = pd.read_csv(HANDOVER / "test_set.csv", encoding="utf-8")
     model = joblib.load(HANDOVER / "model.joblib")
 
-    assert sha256(HANDOVER / "test_set.csv") == contract["data_sha256"]["test_set"]
+    assert file_matches(
+        HANDOVER / "test_set.csv", contract["data_sha256"]["test_set"]
+    )
     assert sha256(HANDOVER / "model.joblib") == contract["model_sha256"]
 
     features, target = contract["features"], contract["target"]

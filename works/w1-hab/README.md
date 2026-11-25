@@ -93,6 +93,31 @@ python handover/importance.py --repeats 1000
 Handover: `model.joblib`, `test_set.csv` (996 строк), `model_dataset.csv`
 (3 984 строки + split), `contract.json`, `CARD.md`, `kt3_consistency.md`.
 
+## ML-B: bootstrap и устойчивость
+
+ML-B-часть вынесена в пакет [`ml_b/`](ml_b/README.md):
+
+- `ml_b/bootstrap.py` — bootstrap-CI коэффициентов и OR **только на train**,
+  preprocessing обучается на train; direction/strength/устойчивость знака.
+- `ml_b/stability.py` — 10 альтернативных split’ов, 200 подвыборок 80% train,
+  5-fold CV, ранжирование блоков permutation importance.
+- `ml_b/data.py` — проверка контракта, хешей (включая CRLF-нормализацию) и
+  отсутствия пересечения train/test по `SEQN`.
+- `ml_b/run.py` — сводный прогон и запись артефактов.
+- `ml_b/tests/` — 9 тестов на bootstrap, direction, устойчивость, хеши, график.
+
+```bash
+python ml_b/run.py
+python -m unittest discover -s ml_b/tests -v
+```
+
+Результаты: `handover/factors_mlb.csv`, `handover/stability.json`,
+`handover/MLB_SUMMARY.md`, `report/importance_ci.svg`.
+
+Важно: `out/factors.csv` ML-A считает β/CI на полной выборке (n = 3 984), а
+ML-B — на train (n = 2 988). У `phq_mean` и `log_kcal` CI на train включает 1;
+расхождение разобрано в `MLB_SUMMARY.md`.
+
 ## Структура
 
 ```
@@ -102,12 +127,14 @@ works/w1-hab/
   notebook.ipynb             20 ячеек: паспорт → очистка → модель → факторы
   requirements.txt
   ml_a/                      ML-A: контракт, Pipeline, тесты, handover
-  handover/                  модель, test set, contract, CARD, KT-3
+  ml_b/                      ML-B: bootstrap, устойчивость, тесты
+  handover/                  модель, test set, contract, CARD, KT-3, ML-B артефакты
   data/PASSPORT.md           источники, лицензии, единицы, sha256
   data/fetch.py              воспроизводимая загрузка
   out/                       итоговые артефакты
   report/report.html         яркая версия
   report/report_engineer.html инженерная версия
+  report/importance_ci.svg   важность блоков с CI (ML-B)
   review/report.json         checker
   review/llm_report_review.md
 ```

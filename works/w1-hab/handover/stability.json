@@ -1,0 +1,635 @@
+{
+  "meta": {
+    "owner": "ML-B",
+    "created_at": "2026-11-25 12:09 UTC",
+    "source": "handover/ (ML-A)",
+    "n_train": 2988,
+    "n_test": 996,
+    "n_features": 18,
+    "bootstrap_scope": "train only",
+    "handover_hashes": {
+      "model_dataset": {
+        "file": "model_dataset.csv",
+        "expected": "cea4b68e0a62cae195ce2cb7d1ef6c091ceac2f101e048d6477340fb4950e29f",
+        "sha256_bytes": "7e3a3b6a6d7c5c14d8edbc95290b0121b638f4045759b11ad27ddc3a395652f6",
+        "sha256_lf_normalized": "cea4b68e0a62cae195ce2cb7d1ef6c091ceac2f101e048d6477340fb4950e29f",
+        "byte_match": false,
+        "content_match": true,
+        "line_endings": "crlf"
+      },
+      "test_set": {
+        "file": "test_set.csv",
+        "expected": "00d01864f9e3fc9aeb215691083db3a27528345482a8fc56b90538ee15f91731",
+        "sha256_bytes": "050daeeee3cba0e888e45fc0df640736f198f11167612637782f2df162e59dbc",
+        "sha256_lf_normalized": "00d01864f9e3fc9aeb215691083db3a27528345482a8fc56b90538ee15f91731",
+        "byte_match": false,
+        "content_match": true,
+        "line_endings": "crlf"
+      },
+      "model": {
+        "file": "model.joblib",
+        "expected": "5d6b865e62a57f9edb1e066749dbff33b6973d2c5a99f31e4ea6beb1e9e36cc1",
+        "sha256_bytes": "5d6b865e62a57f9edb1e066749dbff33b6973d2c5a99f31e4ea6beb1e9e36cc1",
+        "byte_match": true,
+        "content_match": true
+      }
+    }
+  },
+  "point_model": {
+    "test_auc": 0.6674423758865248,
+    "contract_test_auc": 0.6674423758865248,
+    "auc_match": true
+  },
+  "bootstrap": {
+    "n_boot": 1000,
+    "ci_percentiles": [
+      2.5,
+      97.5
+    ],
+    "note": "preprocessing fitted on train; train rows resampled with replacement"
+  },
+  "seed_stability": {
+    "seeds": [
+      42,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "alternative_split_note": "sensitivity analysis; contract test stays fixed",
+    "per_seed": [
+      {
+        "seed": 42,
+        "n_train": 2988,
+        "n_test": 996,
+        "test_events": 432,
+        "test_auc": 0.674407341738902
+      },
+      {
+        "seed": 1,
+        "n_train": 2988,
+        "n_test": 996,
+        "test_events": 432,
+        "test_auc": 0.6954294720252168
+      },
+      {
+        "seed": 2,
+        "n_train": 2988,
+        "n_test": 996,
+        "test_events": 432,
+        "test_auc": 0.674078999211978
+      },
+      {
+        "seed": 3,
+        "n_train": 2988,
+        "n_test": 996,
+        "test_events": 432,
+        "test_auc": 0.6869746519569215
+      },
+      {
+        "seed": 4,
+        "n_train": 2988,
+        "n_test": 996,
+        "test_events": 432,
+        "test_auc": 0.6554907079064881
+      },
+      {
+        "seed": 5,
+        "n_train": 2988,
+        "n_test": 996,
+        "test_events": 432,
+        "test_auc": 0.6461001116364592
+      },
+      {
+        "seed": 6,
+        "n_train": 2988,
+        "n_test": 996,
+        "test_events": 432,
+        "test_auc": 0.6748506041502496
+      },
+      {
+        "seed": 7,
+        "n_train": 2988,
+        "n_test": 996,
+        "test_events": 432,
+        "test_auc": 0.6611833464670345
+      },
+      {
+        "seed": 8,
+        "n_train": 2988,
+        "n_test": 996,
+        "test_events": 432,
+        "test_auc": 0.6450945626477541
+      },
+      {
+        "seed": 9,
+        "n_train": 2988,
+        "n_test": 996,
+        "test_events": 432,
+        "test_auc": 0.6624474651956922
+      }
+    ],
+    "auc_mean": 0.6676057262936697,
+    "auc_sd": 0.016579243513001742,
+    "auc_min": 0.6450945626477541,
+    "auc_max": 0.6954294720252168,
+    "sign_consistency_mean": 0.9583333333333334,
+    "sign_consistency_min": 0.6,
+    "n_features_sign_stable_90": 21
+  },
+  "subsample_stability": {
+    "n_subsamples": 200,
+    "fraction": 0.8,
+    "sign_consistency_mean": 0.9608333333333333,
+    "sign_consistency_min": 0.71,
+    "or_percentiles": {
+      "low": 0.31233425030289974,
+      "high": 1.5056212761574088
+    },
+    "per_feature": {
+      "num__log_kcal": {
+        "or_mean": 0.7799092266510409,
+        "or_low": 0.6473223149129517,
+        "or_high": 0.9443154136117516,
+        "sign_consistency": 0.995
+      },
+      "num__log_prot": {
+        "or_mean": 1.3774992659514225,
+        "or_low": 1.268940210764511,
+        "or_high": 1.5056212761574088,
+        "sign_consistency": 1.0
+      },
+      "num__log_fat": {
+        "or_mean": 1.247644919207155,
+        "or_low": 1.1285864573817042,
+        "or_high": 1.37067669577541,
+        "sign_consistency": 1.0
+      },
+      "num__log_carb": {
+        "or_mean": 1.192688106463903,
+        "or_low": 1.0668036009570299,
+        "or_high": 1.340026017499148,
+        "sign_consistency": 1.0
+      },
+      "num__log_fiber": {
+        "or_mean": 0.889399336923876,
+        "or_low": 0.8383487801556768,
+        "or_high": 0.9415317066147227,
+        "sign_consistency": 1.0
+      },
+      "num__log_pota": {
+        "or_mean": 0.663196359500248,
+        "or_low": 0.6163422800432514,
+        "or_high": 0.7095171873894078,
+        "sign_consistency": 1.0
+      },
+      "num__log_water": {
+        "or_mean": 1.2572709367005643,
+        "or_low": 1.2042414482314265,
+        "or_high": 1.3162795334700266,
+        "sign_consistency": 1.0
+      },
+      "num__SLD012": {
+        "or_mean": 0.9865822061036793,
+        "or_low": 0.9492146029207856,
+        "or_high": 1.0244990045340374,
+        "sign_consistency": 0.775
+      },
+      "num__SLQ120": {
+        "or_mean": 1.1464305602718672,
+        "or_low": 1.09678220733303,
+        "or_high": 1.2017844005760052,
+        "sign_consistency": 1.0
+      },
+      "num__phq_mean": {
+        "or_mean": 1.0917179895580902,
+        "or_low": 1.0462476845990047,
+        "or_high": 1.1429408502365073,
+        "sign_consistency": 1.0
+      },
+      "num__log_mvpa": {
+        "or_mean": 0.9627250485007923,
+        "or_low": 0.9285024818770143,
+        "or_high": 1.002694289765827,
+        "sign_consistency": 0.96
+      },
+      "num__sed": {
+        "or_mean": 1.2206992285550766,
+        "or_low": 1.174282782997858,
+        "or_high": 1.272221601833824,
+        "sign_consistency": 1.0
+      },
+      "num__RIDAGEYR": {
+        "or_mean": 1.112570066657037,
+        "or_low": 1.0687029044715828,
+        "or_high": 1.163422999285985,
+        "sign_consistency": 1.0
+      },
+      "cat__RIAGENDR_2.0": {
+        "or_mean": 1.2084604947647681,
+        "or_low": 1.1143232745310632,
+        "or_high": 1.3257868839599487,
+        "sign_consistency": 1.0
+      },
+      "cat__RIDRETH1_2.0": {
+        "or_mean": 0.7679506129850745,
+        "or_low": 0.645823124431958,
+        "or_high": 0.8778119548219238,
+        "sign_consistency": 1.0
+      },
+      "cat__RIDRETH1_3.0": {
+        "or_mean": 0.6950300245387333,
+        "or_low": 0.6118701396039447,
+        "or_high": 0.7915586348293183,
+        "sign_consistency": 1.0
+      },
+      "cat__RIDRETH1_4.0": {
+        "or_mean": 0.8958474921999805,
+        "or_low": 0.7862760439666362,
+        "or_high": 1.0181343808417234,
+        "sign_consistency": 0.955
+      },
+      "cat__RIDRETH1_5.0": {
+        "or_mean": 0.364981278824574,
+        "or_low": 0.31233425030289974,
+        "or_high": 0.42393019924059583,
+        "sign_consistency": 1.0
+      },
+      "cat__DMDEDUC2_2.0": {
+        "or_mean": 0.9498582242933681,
+        "or_low": 0.8012471868302737,
+        "or_high": 1.1290979192455755,
+        "sign_consistency": 0.755
+      },
+      "cat__DMDEDUC2_3.0": {
+        "or_mean": 1.0489644825251443,
+        "or_low": 0.8938633046180301,
+        "or_high": 1.23157012569754,
+        "sign_consistency": 0.71
+      },
+      "cat__DMDEDUC2_4.0": {
+        "or_mean": 1.2237912578099672,
+        "or_low": 1.0588135419189841,
+        "or_high": 1.4179279007091397,
+        "sign_consistency": 0.995
+      },
+      "cat__DMDEDUC2_5.0": {
+        "or_mean": 0.7695233079023106,
+        "or_low": 0.6405505304459467,
+        "or_high": 0.9044224839492997,
+        "sign_consistency": 1.0
+      },
+      "cat__SMQ020_2.0": {
+        "or_mean": 1.0657159887495862,
+        "or_low": 0.9828161743767733,
+        "or_high": 1.1573737080377606,
+        "sign_consistency": 0.915
+      },
+      "cat__SLQ050_2.0": {
+        "or_mean": 0.711936493074823,
+        "or_low": 0.6532951557770912,
+        "or_high": 0.7821362159817198,
+        "sign_consistency": 1.0
+      }
+    }
+  },
+  "cv": {
+    "folds": 5,
+    "auc_mean": 0.6647323228211984,
+    "auc_sd": 0.015673776286217446,
+    "auc_folds": [
+      0.6859944647555267,
+      0.6535574765663262,
+      0.6771107390576417,
+      0.6532407301638072,
+      0.65375820356269
+    ]
+  },
+  "block_rank_stability": {
+    "per_split": [
+      {
+        "seed": 42,
+        "test_auc": 0.674407341738902,
+        "importance_питание": 0.04269684134489103,
+        "importance_сон": 0.017594097495841014,
+        "importance_стресс": 0.0004380636546712391,
+        "importance_активность": 0.020785450048156913,
+        "importance_контроль": 0.06217603537343492,
+        "order": "контроль > питание > активность > сон > стресс"
+      },
+      {
+        "seed": 1,
+        "test_auc": 0.6954294720252168,
+        "importance_питание": 0.04825650118203315,
+        "importance_сон": 0.02771676079152446,
+        "importance_стресс": 0.005204092242360617,
+        "importance_активность": 0.023003814245687853,
+        "importance_контроль": 0.06192649505297266,
+        "order": "контроль > питание > сон > активность > стресс"
+      },
+      {
+        "seed": 2,
+        "test_auc": 0.674078999211978,
+        "importance_питание": 0.04916081122493659,
+        "importance_сон": 0.021651727081691673,
+        "importance_стресс": 0.0026880308204185856,
+        "importance_активность": 0.02159727694597677,
+        "importance_контроль": 0.06304860563873577,
+        "order": "контроль > питание > сон > активность > стресс"
+      },
+      {
+        "seed": 3,
+        "test_auc": 0.6869746519569215,
+        "importance_питание": 0.053162622581210135,
+        "importance_сон": 0.02605644208037833,
+        "importance_стресс": 0.0008780426407495509,
+        "importance_активность": 0.021388779441379995,
+        "importance_контроль": 0.0620369002276509,
+        "order": "контроль > питание > сон > активность > стресс"
+      },
+      {
+        "seed": 4,
+        "test_auc": 0.6554907079064881,
+        "importance_питание": 0.03723732597846079,
+        "importance_сон": 0.017222386393485747,
+        "importance_стресс": 0.0006282287015148102,
+        "importance_активность": 0.01879911456965243,
+        "importance_контроль": 0.059471861045442685,
+        "order": "контроль > питание > активность > сон > стресс"
+      },
+      {
+        "seed": 5,
+        "test_auc": 0.6461001116364592,
+        "importance_питание": 0.03674467537868842,
+        "importance_сон": 0.009507841914018085,
+        "importance_стресс": -0.0010415298572804062,
+        "importance_активность": 0.016964500700464086,
+        "importance_контроль": 0.05434123544348135,
+        "order": "контроль > питание > активность > сон > стресс"
+      },
+      {
+        "seed": 6,
+        "test_auc": 0.6748506041502496,
+        "importance_питание": 0.046684014096839185,
+        "importance_сон": 0.025137493433149482,
+        "importance_стресс": 0.0034603198056212406,
+        "importance_активность": 0.011784076481919281,
+        "importance_контроль": 0.06156271889501797,
+        "order": "контроль > питание > сон > активность > стресс"
+      },
+      {
+        "seed": 7,
+        "test_auc": 0.6611833464670345,
+        "importance_питание": 0.046359228613956804,
+        "importance_сон": 0.03132045683390252,
+        "importance_стресс": 0.005223382365817416,
+        "importance_активность": 0.021746809605113448,
+        "importance_контроль": 0.048595925269240926,
+        "order": "контроль > питание > сон > активность > стресс"
+      },
+      {
+        "seed": 8,
+        "test_auc": 0.6450945626477541,
+        "importance_питание": 0.0323807295770948,
+        "importance_сон": 0.017542109929077985,
+        "importance_стресс": 0.0014028434462831306,
+        "importance_активность": 0.011587481393923463,
+        "importance_контроль": 0.0484674612555818,
+        "order": "контроль > питание > сон > активность > стресс"
+      },
+      {
+        "seed": 9,
+        "test_auc": 0.6624474651956922,
+        "importance_питание": 0.03945076503808779,
+        "importance_сон": 0.017982088915156364,
+        "importance_стресс": 0.0013609797741003977,
+        "importance_активность": 0.019483845547675394,
+        "importance_контроль": 0.06738778894142376,
+        "order": "контроль > питание > активность > сон > стресс"
+      }
+    ],
+    "summary": {
+      "reference_order": [
+        "контроль",
+        "питание",
+        "сон",
+        "активность",
+        "стресс"
+      ],
+      "n_splits": 10,
+      "mean_rank": {
+        "контроль": 1.0,
+        "питание": 2.0,
+        "сон": 3.4,
+        "активность": 3.6,
+        "стресс": 5.0
+      },
+      "rank_sd": {
+        "контроль": 0.0,
+        "питание": 0.0,
+        "сон": 0.5163977794943223,
+        "активность": 0.5163977794943223,
+        "стресс": 0.0
+      },
+      "share_first": {
+        "контроль": 1.0,
+        "питание": 0.0,
+        "сон": 0.0,
+        "активность": 0.0,
+        "стресс": 0.0
+      },
+      "share_habit_block_first": 0.0,
+      "habit_reference_order": [
+        "питание",
+        "сон",
+        "активность",
+        "стресс"
+      ],
+      "habit_exact_order_match": 0.6,
+      "habit_kendall_tau_mean": 0.8666666666666666,
+      "exact_order_match": 0.6,
+      "kendall_tau_mean": 0.9199999999999999,
+      "kendall_tau_min": 0.7999999999999999,
+      "reference_position": {
+        "контроль": 0,
+        "питание": 1,
+        "сон": 2,
+        "активность": 3,
+        "стресс": 4
+      }
+    },
+    "mla_importance_blocks": [
+      {
+        "block": "контроль",
+        "perm_importance": 0.06132607696348826,
+        "ci_low": 0.03884917996453904,
+        "ci_high": 0.08530031028368788,
+        "repeats": 1000
+      },
+      {
+        "block": "питание",
+        "perm_importance": 0.041290595449172525,
+        "ci_low": 0.02272899839112157,
+        "ci_high": 0.06092744451011294,
+        "repeats": 1000
+      },
+      {
+        "block": "сон",
+        "perm_importance": 0.01998679242185444,
+        "ci_low": 0.006435205706593147,
+        "ci_high": 0.03252242989887046,
+        "repeats": 1000
+      },
+      {
+        "block": "активность",
+        "perm_importance": 0.016352077587339062,
+        "ci_low": 0.005470904747832833,
+        "ci_high": 0.02782271966115038,
+        "repeats": 1000
+      },
+      {
+        "block": "стресс",
+        "perm_importance": 0.0013257075781454662,
+        "ci_low": -0.002994483845547849,
+        "ci_high": 0.00578303536249016,
+        "repeats": 1000
+      }
+    ]
+  },
+  "kt3_check": [
+    {
+      "block": "Питание: клетчатка",
+      "ml_factor": "log_fiber",
+      "mlb_or": 0.8907177231697945,
+      "mlb_ci_low": 0.7808990252135309,
+      "mlb_ci_high": 1.003583957789726,
+      "mlb_direction": "unclear",
+      "mlb_sign_stability": 0.97,
+      "ci_excludes_1": false,
+      "handover_direction": "unclear",
+      "direction_match": true,
+      "traditional_or": 1.781
+    },
+    {
+      "block": "Сон",
+      "ml_factor": "SLD012",
+      "mlb_or": 0.9893850932458677,
+      "mlb_ci_low": 0.914829333092194,
+      "mlb_ci_high": 1.0707344711958973,
+      "mlb_direction": "unclear",
+      "mlb_sign_stability": 0.6,
+      "ci_excludes_1": false,
+      "handover_direction": "unclear",
+      "direction_match": true,
+      "traditional_or": 1.215
+    },
+    {
+      "block": "Стресс",
+      "ml_factor": "phq_mean",
+      "mlb_or": 1.0903445356024914,
+      "mlb_ci_low": 0.9982413312665801,
+      "mlb_ci_high": 1.1922298649200782,
+      "mlb_direction": "unclear",
+      "mlb_sign_stability": 0.969,
+      "ci_excludes_1": false,
+      "handover_direction": "positive",
+      "direction_match": false,
+      "traditional_or": 1.656
+    },
+    {
+      "block": "Активность",
+      "ml_factor": "sed",
+      "mlb_or": 1.2187774140098409,
+      "mlb_ci_low": 1.1223316898748497,
+      "mlb_ci_high": 1.329965421869243,
+      "mlb_direction": "positive",
+      "mlb_sign_stability": 1.0,
+      "ci_excludes_1": true,
+      "handover_direction": "positive",
+      "direction_match": true,
+      "traditional_or": 1.173
+    }
+  ],
+  "mla_comparison": [
+    {
+      "feature": "log_kcal",
+      "level": "",
+      "block": "питание",
+      "n_mla": 3984,
+      "n_mlb": 2988,
+      "or_mla": 0.7076226060866498,
+      "ci_mla_low": 0.4993077711817596,
+      "ci_mla_high": 0.952773835203861,
+      "direction_mla": "negative",
+      "or_mlb": 0.7785191865922513,
+      "ci_mlb_low": 0.529337819344181,
+      "ci_mlb_high": 1.1401109740876583,
+      "direction_mlb": "unclear"
+    },
+    {
+      "feature": "phq_mean",
+      "level": "",
+      "block": "стресс",
+      "n_mla": 3984,
+      "n_mlb": 2988,
+      "or_mla": 1.0893885622823711,
+      "ci_mla_low": 1.0103920555233334,
+      "ci_mla_high": 1.1798782137823272,
+      "direction_mla": "positive",
+      "or_mlb": 1.0903445356024914,
+      "ci_mlb_low": 0.9982413312665801,
+      "ci_mlb_high": 1.1922298649200782,
+      "direction_mlb": "unclear"
+    },
+    {
+      "feature": "RIDRETH1",
+      "level": "2.0",
+      "block": "контроль",
+      "n_mla": 3984,
+      "n_mlb": 2988,
+      "or_mla": 0.677564761708837,
+      "ci_mla_low": 0.5205109079561284,
+      "ci_mla_high": 0.913460069923631,
+      "direction_mla": "negative",
+      "or_mlb": 0.7609767007761649,
+      "ci_mlb_low": 0.5535959060992485,
+      "ci_mlb_high": 1.0302278575338448,
+      "direction_mlb": "unclear"
+    },
+    {
+      "feature": "RIDRETH1",
+      "level": "4.0",
+      "block": "контроль",
+      "n_mla": 3984,
+      "n_mlb": 2988,
+      "or_mla": 0.7997124600760095,
+      "ci_mla_low": 0.6262981143310558,
+      "ci_mla_high": 0.9939832194064031,
+      "direction_mla": "negative",
+      "or_mlb": 0.8943949624458585,
+      "ci_mlb_low": 0.6812140055843108,
+      "ci_mlb_high": 1.1411797621699782,
+      "direction_mlb": "unclear"
+    },
+    {
+      "feature": "RIAGENDR",
+      "level": "2.0",
+      "block": "контроль",
+      "n_mla": 3984,
+      "n_mlb": 2988,
+      "or_mla": 1.1514442675859426,
+      "ci_mla_low": 0.9866182794093935,
+      "ci_mla_high": 1.3289710723171313,
+      "direction_mla": "unclear",
+      "or_mlb": 1.2112110578406463,
+      "ci_mlb_low": 1.0397205161998535,
+      "ci_mlb_high": 1.4458634035153755,
+      "direction_mlb": "positive"
+    }
+  ]
+}
