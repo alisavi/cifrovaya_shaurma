@@ -45,7 +45,8 @@
    (стандартизация, one-hot, stratify, фиксированный seed).
 5. Permutation importance на test, 1000 перестановок; bootstrap 1000 для
    коэффициентов и 95% CI.
-6. `out/metrics.json`, `out/factors.csv`, `report/report.html`.
+6. `out/metrics.json`, `out/factors.csv`, `report/report.html`,
+   `report/report_engineer.html`.
 7. Проверка checker по `shared/rubric/practice-v1.json`.
 
 ## Границы
@@ -62,10 +63,11 @@ works/w1-hab/
   spec.md
   analysis.py
   notebook.ipynb
+  requirements.txt
   data/{PASSPORT.md,fetch.py,fetch.sh,raw/}
   out/{metrics.json,factors.csv,feature_map.json}
-  report/report.html
-  review/report.json
+  report/{report.html,report_engineer.html}
+  review/{report.json,llm_report_review.md}
 ```
 
 ## Готово, когда
@@ -74,5 +76,6 @@ works/w1-hab/
 - все четыре блока размечены, очистка описана с n до/после;
 - baseline и модель сравнены, у факторов есть направление/сила/95% CI;
 - отчёт содержит секцию «Традиционный способ»;
+- отчёт собран в двух стилях — яркий и инженерный;
 - выводы сформулированы как гипотезы;
 - checker записал `review/report.json` (оценку ставит человек).

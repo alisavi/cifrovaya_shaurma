@@ -19,8 +19,10 @@ import hashlib
 import io
 import json
 import os
+import re
 import subprocess
 import sys
+import time
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
@@ -591,7 +593,7 @@ def traditional(df, full_cv):
         }
 
     rows = [
-        row("Питание: клетчатка", "низкая треть vs высокая треть", d["fiber_low"], d["fiber_high"]),
+        row("Питание: клетчатка", "низкая треть vs высокая треть (на 1000 ккал)", d["fiber_low"], d["fiber_high"]),
         row("Сон", "<7 ч vs 7–9 ч", d["sleep_short"], d["sleep_ref"]),
         row("Стресс", "PHQ-9 ≥1 vs <1", d["stress_high"], ~d["stress_high"]),
         row("Активность", "<150 vs ≥150 мин/нед", d["activity_low"], ~d["activity_low"]),
@@ -681,6 +683,14 @@ def external_brfss():
         "C(_EDUCAG) + C(_INCOMG1) + C(_SMOKER3)"
     )
     m = smf.logit(formula, data=d).fit(disp=0)
+    X = pd.get_dummies(
+        d[["high_stress", "active", "age", "_SEX", "_RACE", "_EDUCAG", "_INCOMG1", "_SMOKER3"]],
+        columns=["_SEX", "_RACE", "_EDUCAG", "_INCOMG1", "_SMOKER3"],
+        drop_first=True,
+    )
+    cv = cross_val_score(
+        LogisticRegression(max_iter=2000), X, d["obese"], cv=5, scoring="roc_auc"
+    )
     out = {}
     for term in ["high_stress", "active"]:
         out[term] = {
@@ -694,6 +704,7 @@ def external_brfss():
         "n": int(len(d)),
         "event_rate": float(d["obese"].mean()),
         "auc": float(roc_auc_score(d["obese"], pred)),
+        "auc_cv": float(np.mean(cv)),
         "terms": out,
         "note": "BRFSS 2024 содержит стресс (дни плохого психического здоровья), "
         "активность и ИМТ; сна и макронутриентов в основном массиве нет.",
@@ -797,8 +808,7 @@ def write_feature_map(prep):
 
 
 def write_passport():
-    files = []
-    for p in [
+    paths = [
         RAW / "nhanes" / "DEMO_J.xpt",
         RAW / "nhanes" / "BMX_J.xpt",
         RAW / "nhanes" / "BPX_J.xpt",
@@ -810,9 +820,18 @@ def write_passport():
         RAW / "nhanes" / "SMQ_J.xpt",
         RAW / "extracted" / "LLCP2024.XPT",
         RAW / "ai4food" / "AI4FoodDB.zip",
-    ]:
-        if p.exists():
-            files.append((p.relative_to(ROOT).as_posix(), p.stat().st_size, sha256_file(p)))
+    ]
+    missing = [p for p in paths if not p.exists()]
+    if missing:
+        print(
+            "PASSPORT: не хватает файлов ("
+            + ", ".join(p.name for p in missing)
+            + "); паспорт не перезаписан"
+        )
+        return
+    files = []
+    for p in paths:
+        files.append((p.relative_to(ROOT).as_posix(), p.stat().st_size, sha256_file(p)))
 
     rows = "\n".join(f"| `{f}` | {s:,} | `{h}` |" for f, s, h in files)
 
@@ -996,10 +1015,42 @@ def make_figures(primary, trad):
     fig.tight_layout()
     f_roc = fig_b64(fig)
 
-    return {"blocks": f_blocks, "forest": f_forest, "trad": f_trad, "roc": f_roc}
+    # distributions used by the four blocks and the target
+    d = primary["df"]
+    panels = [
+        ("ИМТ", d["BMXBMI"], 30, "кг/м²", 0.99),
+        ("Длительность сна", d["SLD012"], 7, "ч/ночь", 0.99),
+        ("Стресс-прокси PHQ-9", d["phq_mean"], 1.0, "средний балл (0–3)", 0.99),
+        ("MVPA", d["mvpa"], 150, "мин/нед", 0.99),
+    ]
+    fig, axes = plt.subplots(2, 2, figsize=(10, 6.2))
+    for ax, (title, series, cut, unit, q) in zip(axes.ravel(), panels):
+        s = series.dropna()
+        clipped = s > s.quantile(q)
+        s = s.clip(upper=s.quantile(q))
+        ax.hist(s, bins=40, color="#3b7ea1", alpha=0.85)
+        ax.axvline(cut, color="#b03a2e", ls="--", lw=1)
+        ax.set_title(title)
+        ax.set_xlabel(unit + (" (обрезано по 99%)" if clipped.any() else ""))
+        ax.set_ylabel("n")
+        ax.text(
+            0.98,
+            0.95,
+            f"медиана {series.median():.3g}",
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            fontsize=8,
+        )
+        ax.grid(axis="y", alpha=0.2)
+    fig.suptitle("Распределения ключевых переменных (модельная выборка)")
+    fig.tight_layout()
+    f_dist = fig_b64(fig)
+
+    return {"blocks": f_blocks, "forest": f_forest, "trad": f_trad, "roc": f_roc, "dist": f_dist}
 
 
-def build_report(results, checker=None):
+def build_report(results, checker=None, runtime_seconds=None):
     primary = results["primary"]
     trad = results["traditional"]
     prep = results["prep"]
@@ -1029,10 +1080,18 @@ def build_report(results, checker=None):
     sed = pick("sed")
     mvpa = pick("log_mvpa")
 
+    def esc(value: object) -> str:
+        return (
+            str(value)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+
     def frow(r):
         return (
             "<tr>"
-            f"<td>{r['factor']}</td><td>{r['block']}</td>"
+            f"<td>{esc(r['factor'])}</td><td>{esc(r['block'])}</td>"
             f"<td>{r['or_per_sd']:.2f} ({r['ci_low']:.2f}–{r['ci_high']:.2f})</td>"
             f"<td>{direct_ru.get(r['direction'], r['direction'])}</td>"
             f"<td>{strength_ru.get(r['strength'], r['strength'])}</td>"
@@ -1044,14 +1103,6 @@ def build_report(results, checker=None):
         return "&lt;0.001" if p < 0.001 else f"{p:.3f}"
 
     factors_rows = "\n".join(frow(r) for _, r in main.head(12).iterrows())
-
-    def esc(value: object) -> str:
-        return (
-            str(value)
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-        )
 
     trad_rows = "\n".join(
         "<tr>"
@@ -1070,6 +1121,12 @@ def build_report(results, checker=None):
     miss_rows = "\n".join(
         f"<tr><td><code>{m['variable']}</code></td><td>{m['missing_pct']:.1f}%</td></tr>"
         for m in prep["missing"]
+    )
+    cat_set = set(prep["cat"])
+    dtype_rows = "\n".join(
+        f"<tr><td><code>{k}</code></td><td>{v}</td>"
+        f"<td>{'категориальный' if k in cat_set else 'числовой'}</td></tr>"
+        for k, v in prep["dtypes"].items()
     )
     outlier_rows = "\n".join(
         f"<tr><td><code>{o['variable']}</code></td><td>{o['rule']}</td><td>{o['removed']}</td></tr>"
@@ -1112,13 +1169,21 @@ def build_report(results, checker=None):
          ("стресс", primary["blocks"]["стресс"][0]), ("активность", primary["blocks"]["активность"][0])],
         key=lambda x: x[1],
     )[0]
+    runtime_txt = f"{runtime_seconds / 60:.1f} мин" if runtime_seconds else "не измерено"
+    ranked = sorted(
+        [("питание", primary["blocks"]["питание"][0]), ("сон", primary["blocks"]["сон"][0]),
+         ("стресс", primary["blocks"]["стресс"][0]), ("активность", primary["blocks"]["активность"][0])],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    ranking_txt = " → ".join(f"{block_labels[b]} {v:.4f}" for b, v in ranked)
 
     html = f"""<!doctype html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>w1-hab · Привычки и здоровье</title>
+<title>{block_labels[top_block]} — точечно самый сильный блок, но ранг не устойчив: ассоциация, не причина</title>
 <style>
 :root {{ --ink:#16202a; --muted:#5b6773; --line:#d9e1e8; --accent:#2f6f4e; --bg:#f6f8fa; }}
 * {{ box-sizing:border-box; }}
@@ -1138,6 +1203,12 @@ p {{ margin:8px 0; }}
 .kpi div {{ background:#f0f5f2; border:1px solid #d7e3dc; border-radius:10px; padding:14px; }}
 .kpi b {{ display:block; font-size:24px; color:var(--accent); }}
 .kpi span {{ font-size:13px; color:var(--muted); }}
+.hero {{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:20px 0 0; }}
+.hero div {{ background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.22); border-radius:10px; padding:14px 16px; }}
+.hero b {{ display:block; font-size:34px; line-height:1.05; }}
+.hero span {{ font-size:13px; color:#dcebe3; }}
+a.badge {{ color:#fff; text-decoration:none; }}
+a.badge:hover {{ background:rgba(255,255,255,.22); }}
 table {{ width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }}
 th,td {{ border-bottom:1px solid var(--line); padding:8px 9px; text-align:left; vertical-align:top; }}
 th {{ background:#f2f5f7; font-weight:600; }}
@@ -1154,21 +1225,27 @@ li {{ margin:4px 0; }}
 </head>
 <body><div class="wrap">
 <header>
-  <h1>Привычки и здоровье: факторная связь</h1>
+  <h1>{block_labels[top_block]} — точечно самый сильный блок привычек, но ранг не устойчив</h1>
   <p>Питание · сон · стресс · физическая активность → ожирение (ИМТ ≥ 30)</p>
-  <p class="small">Наблюдательное исследование. Все выводы — ассоциации и гипотезы, не причинность.</p>
+  <p class="small">Не доказано: это наблюдательные ассоциации. Причинность, обратная причинность и конфаундеры не исключены.</p>
+  <div class="hero">
+    <div><b>{primary['model']['roc_auc']:.3f}</b><span>ROC AUC, test</span></div>
+    <div><b>4</b><span>блока привычек</span></div>
+    <div><b>{primary['prevalence']*100:.0f}%</b><span>доля ожирения</span></div>
+  </div>
   <div class="badges">
     <span class="badge">NHANES 2017–2018 · основная выборка</span>
     <span class="badge">BRFSS 2024 · репликация</span>
     <span class="badge">AI4FoodDB · внешняя проверка</span>
     <span class="badge">n = {primary['n_model']}</span>
+    <a class="badge" href="report_engineer.html">Инженерная версия →</a>
   </div>
 </header>
 
 <div class="card">
   <h2>Коротко</h2>
   <ul>
-    <li><b>Самый сильный блок привычек — {block_labels[top_block].lower()}</b>: важность {primary['blocks'][top_block][0]:.4f} ROC AUC (95% CI {primary['blocks'][top_block][1]:.4f}–{primary['blocks'][top_block][2]:.4f}). Блок контроля (возраст, раса и др.) ещё сильнее и служит ориентиром.</li>
+    <li><b>Наибольшая точечная важность — {block_labels[top_block].lower()}</b>: {primary['blocks'][top_block][0]:.4f} ROC AUC (95% CI {primary['blocks'][top_block][1]:.4f}–{primary['blocks'][top_block][2]:.4f}). Интервалы питания, сна и активности пересекаются, поэтому ранг между ними не объявляем. Блок контроля (возраст, раса и др.) ещё сильнее и служит ориентиром.</li>
     <li><b>Питание.</b> Калий как прокси овощей и фруктов: OR {pota['or_per_sd']:.2f} ({pota['ci_low']:.2f}–{pota['ci_high']:.2f}); жиры: OR {fat['or_per_sd']:.2f} ({fat['ci_low']:.2f}–{fat['ci_high']:.2f}); клетчатка: OR {fiber['or_per_sd']:.2f} ({fiber['ci_low']:.2f}–{fiber['ci_high']:.2f}).</li>
     <li><b>Сон.</b> Диагноз нарушения сна: OR {sleep_dx['or_per_sd']:.2f} ({sleep_dx['ci_low']:.2f}–{sleep_dx['ci_high']:.2f}); длительность: OR {sleep_h['or_per_sd']:.2f} ({sleep_h['ci_low']:.2f}–{sleep_h['ci_high']:.2f}) — направление длительности не определено.</li>
     <li><b>Стресс.</b> Прокси PHQ-9: OR {phq['or_per_sd']:.2f} ({phq['ci_low']:.2f}–{phq['ci_high']:.2f}) — слабая положительная связь; permutation-вклад блока неотличим от нуля.</li>
@@ -1199,9 +1276,14 @@ li {{ margin:4px 0; }}
   <table><thead><tr><th>Шаг</th><th>n</th><th>Удалено</th></tr></thead><tbody>{steps_rows}</tbody></table>
   <p class="small">Пропуски до complete-case (показаны только переменные с пропусками):</p>
   <table><thead><tr><th>Переменная</th><th>Пропусков, %</th></tr></thead><tbody>{miss_rows}</tbody></table>
+  <details><summary>Типы признаков после очистки</summary>
+    <table><thead><tr><th>Признак</th><th>Тип</th><th>Роль</th></tr></thead><tbody>{dtype_rows}</tbody></table>
+  </details>
   <p class="small">Выбросы — значения вне физически возможного диапазона по единицам измерения:</p>
   <table><thead><tr><th>Переменная</th><th>Правило</th><th>Удалено</th></tr></thead><tbody>{outlier_rows}</tbody></table>
   <p class="small">Итог: {prep['n_raw']:,} строк в исходном файле → {primary['n_model']:,} в модели; событий {primary['events']:,} ({primary['prevalence']*100:.1f}%). Дубликатов по <code>SEQN</code> нет.</p>
+  <img src="data:image/png;base64,{figs['dist']}" alt="Распределения ключевых переменных">
+  <p class="small muted">Красная линия — порог: ИМТ 30 (исход), сон 7 ч, PHQ-9 1, MVPA 150 мин/нед (традиционные сравнения).</p>
 </div>
 
 <div class="card">
@@ -1253,7 +1335,7 @@ li {{ margin:4px 0; }}
   <h2>6. Факторы: направление, сила, 95% CI</h2>
   <img src="data:image/png;base64,{figs['blocks']}" alt="Важность блоков">
   <table><thead><tr><th>Блок</th><th>Δ AUC</th><th>95% CI</th></tr></thead><tbody>{block_rows}</tbody></table>
-  <p>Питание — сильнейший блок привычек ({primary['blocks']['питание'][0]:.4f} ROC AUC), за ним сон ({primary['blocks']['сон'][0]:.4f}) и активность ({primary['blocks']['активность'][0]:.4f}); их интервалы не включают ноль. Стресс-прокси даёт {primary['blocks']['стресс'][0]:.4f} с CI {primary['blocks']['стресс'][1]:.4f}–{primary['blocks']['стресс'][2]:.4f}: вклад неотличим от нуля. Контроль (возраст, раса и др.) ожидаемо важен и служит ориентиром.</p>
+  <p>Ранжирование по точечным оценкам: {ranking_txt}. Все три интервала не включают ноль, но пересекаются, поэтому превосходство одного блока над другим не доказано. У стресса CI {primary['blocks']['стресс'][1]:.4f}–{primary['blocks']['стресс'][2]:.4f} — вклад неотличим от нуля. Контроль (возраст, раса и др.) ожидаемо важен и служит ориентиром.</p>
   <img src="data:image/png;base64,{figs['forest']}" alt="Forest plot">
   <table><thead><tr><th>Фактор</th><th>Блок</th><th>OR (95% CI)</th><th>Направление</th><th>Сила</th><th>Δ AUC</th></tr></thead><tbody>{factors_rows}</tbody></table>
   <p class="small muted">OR — на 1 SD для числовых признаков (после log1p) и «уровень против референса» для категорий. Полная таблица — <code>out/factors.csv</code>.</p>
@@ -1271,12 +1353,18 @@ li {{ margin:4px 0; }}
   <table><thead><tr><th>Число флагов</th><th>n</th><th>Ожирение</th></tr></thead><tbody>{score_rows}</tbody></table>
   <p><b>Сравнение:</b> AUC счёта = {trad['auc_score']:.3f}; логит на четырёх флагах (CV) = {trad['auc_flags_cv']:.3f}; полная модель (CV) = {trad['auc_full_cv']:.3f}. Разница показывает, что ML добавляет немного, в основном за счёт совместного учёта и градаций признаков, а не «магии».</p>
   <div class="note">Традиционный способ прозрачен и удобен для коммуникации, но страдает от конфаундеров: например, короткий сон чаще встречается у людей с ожирением, и без поправок легко переоценить связь.</div>
+  <h3>Сколько это стоит</h3>
+  <ul>
+    <li>Полный прогон конвейера: <b>{runtime_txt}</b> (измерено на этой машине; включает 1000 bootstrap и 1000 permutation-повторов).</li>
+    <li>Вручную: ~2–3 ч (оценка: выгрузка, чистка, проверка кода глазами).</li>
+    <li>Токены агентской сессии: учитываются харнесом OpenCode, в отчёт автоматически не переносятся; фактические числа — в <code>review/llm_report_review.md</code>.</li>
+  </ul>
 </div>
 
 <div class="card">
   <h2>8. Проверка на других массивах</h2>
   <h3>BRFSS 2024 · n = {brfss['n']:,}</h3>
-  <p>Модель: ожирение ~ высокий стресс (≥14 дней плохого психического здоровья) + активность + возраст, пол, раса, образование, доход, курение. AUC = {brfss['auc']:.3f}.</p>
+  <p>Модель: ожирение ~ высокий стресс (≥14 дней плохого психического здоровья) + активность + возраст, пол, раса, образование, доход, курение. AUC in-sample = {brfss['auc']:.3f}; CV AUC = {brfss['auc_cv']:.3f}.</p>
   <table><thead><tr><th>Фактор</th><th>OR (95% CI)</th><th>p</th></tr></thead><tbody>
     <tr><td>Высокий стресс</td><td>{brfss['terms']['high_stress']['or']:.2f} ({brfss['terms']['high_stress']['ci_low']:.2f}–{brfss['terms']['high_stress']['ci_high']:.2f})</td><td>{phtml(brfss['terms']['high_stress']['p'])}</td></tr>
     <tr><td>Физическая активность</td><td>{brfss['terms']['active']['or']:.2f} ({brfss['terms']['active']['ci_low']:.2f}–{brfss['terms']['active']['ci_high']:.2f})</td><td>{phtml(brfss['terms']['active']['p'])}</td></tr>
@@ -1308,9 +1396,9 @@ li {{ margin:4px 0; }}
 <div class="card">
   <h2>10. Выводы-гипотезы</h2>
   <ol>
-    <li><b>Питание — самый сильный блок привычек</b> в этой выборке. Гипотеза: качество рациона (калий/овощи-фрукты, жиры, клетчатка) связано с ожирением сильнее, чем сон, стресс и активность.</li>
-    <li><b>Сон связан с ожирением</b> в основном через диагностированное нарушение сна (OR {sleep_dx['or_per_sd']:.2f}, 95% CI {sleep_dx['ci_low']:.2f}–{sleep_dx['ci_high']:.2f}), а не через длительность (OR {sleep_h['or_per_sd']:.2f}, CI включает 1); гипотеза требует продольной проверки.</li>
-    <li><b>Активность связана с ожирением через малоподвижность</b>: сидячее время — OR {sed['or_per_sd']:.2f} ({sed['ci_low']:.2f}–{sed['ci_high']:.2f}), MVPA — OR {mvpa['or_per_sd']:.2f} ({mvpa['ci_low']:.2f}–{mvpa['ci_high']:.2f}). Это может быть следствием измерения и обратной причинности.</li>
+    <li><b>Питание — точечно самый сильный блок привычек</b> в этой выборке, но его CI пересекается с CI сна и активности: ранг не устойчив. Гипотеза для проверки: качество рациона (калий/овощи-фрукты, жиры, клетчатка) может быть связано с ожирением сильнее, чем сон, стресс и активность.</li>
+    <li><b>У сна связь с ожирением сильнее для диагностированного нарушения сна</b> (OR {sleep_dx['or_per_sd']:.2f}, 95% CI {sleep_dx['ci_low']:.2f}–{sleep_dx['ci_high']:.2f}), чем для длительности (OR {sleep_h['or_per_sd']:.2f}, CI включает 1); это ассоциация, требующая продольной проверки.</li>
+    <li><b>У активности связь с ожирением наблюдается в основном для сидячего времени</b>: OR {sed['or_per_sd']:.2f} ({sed['ci_low']:.2f}–{sed['ci_high']:.2f}); MVPA — OR {mvpa['or_per_sd']:.2f} ({mvpa['ci_low']:.2f}–{mvpa['ci_high']:.2f}). Это может быть следствием измерения и обратной причинности.</li>
     <li><b>Стресс-прокси даёт слабую положительную связь</b> в NHANES (OR {phq['or_per_sd']:.2f}, 95% CI {phq['ci_low']:.2f}–{phq['ci_high']:.2f}) и в BRFSS (OR {brfss['terms']['high_stress']['or']:.2f}); но permutation-вклад блока в NHANES неотличим от нуля, а в AI4FoodDB связь не определена. Гипотеза: связь слабая, возможно нелинейная, и требует лучшей шкалы стресса.</li>
     <li>Все утверждения — ассоциации. Для причинных выводов нужны продольные данные, инструменты и контроль конфаундеров.</li>
   </ol>
@@ -1320,11 +1408,231 @@ li {{ margin:4px 0; }}
   <h2>11. Воспроизводимость и проверка</h2>
   <p>Seed = {SEED}; версии: pandas {pd.__version__}, numpy {np.__version__}, scikit-learn {__import__('sklearn').__version__}. Запуск: <code>python analysis.py</code>. Данные: <code>data/fetch.py</code> / <code>data/fetch.sh</code>; хеши — в паспорте.</p>
   <p>Артефакты: <code>out/metrics.json</code>, <code>out/factors.csv</code>, <code>out/feature_map.json</code>, <code>report/report.html</code>.</p>
+  <p>Инженерная версия того же результата: <a href="report_engineer.html">report/report_engineer.html</a>.</p>
+  <h3>Проверка через LLM</h3>
+  <p class="small">Отчёт прогнан через LLM-ревью 2026-11-25: исправлены экранирование символа «&lt;» в таблицах, дублирование permutation importance у категориальных уровней и формулировка ограничения по complete-case. Журнал — <code>review/llm_report_review.md</code>.</p>
   {checker_html}
   <p class="small muted">Оценку за практику ставит человек. Checker проверяет только соответствие рубрике.</p>
 </div>
 </div></body></html>"""
     (REPORT / "report.html").write_text(html, encoding="utf-8")
+    build_engineer_report(results, figs, runtime_seconds=runtime_seconds, checker=checker)
+
+
+def build_engineer_report(results, figs, runtime_seconds=None, checker=None):
+    """Engineering-style report: same numbers, denser tables, monospace metadata."""
+    primary = results["primary"]
+    trad = results["traditional"]
+    prep = results["prep"]
+    brfss = results["brfss"]
+    ai4 = results["ai4food"]
+
+    direct_ru = {"positive": "положительное", "negative": "отрицательное", "unclear": "неясное"}
+    strength_ru = {"weak": "слабая", "moderate": "умеренная", "strong": "сильная"}
+    block_labels = {"питание": "Питание", "сон": "Сон", "стресс": "Стресс", "активность": "Активность", "контроль": "Контроль"}
+
+    def esc(value: object) -> str:
+        return str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    def phtml(p) -> str:
+        return "&lt;0.001" if p < 0.001 else f"{p:.3f}"
+
+    def metric_row(name, m):
+        return (
+            f"<tr><td>{name}</td><td>{m['roc_auc']:.3f}</td><td>{m['pr_auc']:.3f}</td>"
+            f"<td>{m['accuracy']:.3f}</td><td>{m['balanced_accuracy']:.3f}</td>"
+            f"<td>{m['log_loss']:.3f}</td><td>{m['brier']:.3f}</td></tr>"
+        )
+
+    factor_rows = "\n".join(
+        "<tr>"
+        f"<td>{esc(r['factor'])}</td><td>{esc(r['block'])}</td>"
+        f"<td>{r['coef_std']:.3f}</td>"
+        f"<td>{r['or_per_sd']:.2f} ({r['ci_low']:.2f}–{r['ci_high']:.2f})</td>"
+        f"<td>{phtml(r['p_value'])}</td>"
+        f"<td>{direct_ru.get(r['direction'], r['direction'])}</td>"
+        f"<td>{strength_ru.get(r['strength'], r['strength'])}</td>"
+        f"<td>{r['perm_importance']:.4f}</td>"
+        "</tr>"
+        for _, r in primary["factors"].iterrows()
+    )
+    block_rows = "\n".join(
+        f"<tr><td>{block_labels[k]}</td><td>{primary['blocks'][k][0]:.4f}</td>"
+        f"<td>{primary['blocks'][k][1]:.4f} – {primary['blocks'][k][2]:.4f}</td></tr>"
+        for k in ["питание", "сон", "стресс", "активность", "контроль"]
+    )
+    sec_rows = "\n".join(
+        f"<tr><td>{k}</td><td>{v['n']}</td><td>{v['event_rate']*100:.0f}%</td><td>{v['auc']:.3f}</td></tr>"
+        for k, v in primary["secondary"].items()
+    )
+    trad_rows = "\n".join(
+        "<tr>"
+        f"<td>{esc(r['factor'])}</td><td>{esc(r['comparison'])}</td>"
+        f"<td>{r['prev_exposed']*100:.0f}%</td><td>{r['prev_ref']*100:.0f}%</td>"
+        f"<td>{r['or']:.2f} ({r['ci_low']:.2f}–{r['ci_high']:.2f})</td>"
+        f"<td>{phtml(r['p'])}</td>"
+        "</tr>"
+        for r in trad["rows"]
+    )
+    score_rows = "\n".join(
+        f"<tr><td>{s['score']}</td><td>{s['n']}</td><td>{s['obesity_pct']:.0f}%</td></tr>"
+        for s in trad["score"]
+    )
+    steps_rows = "\n".join(
+        f"<tr><td>{s['step']}</td><td>{s['n']:,}</td><td>{s['removed']:,}</td></tr>".replace(",", " ")
+        for s in prep["steps"]
+    )
+    miss_rows = "\n".join(
+        f"<tr><td><code>{m['variable']}</code></td><td>{m['missing_pct']:.1f}%</td></tr>"
+        for m in prep["missing"]
+    )
+    cat_set = set(prep["cat"])
+    dtype_rows = "\n".join(
+        f"<tr><td><code>{k}</code></td><td>{v}</td>"
+        f"<td>{'категориальный' if k in cat_set else 'числовой'}</td></tr>"
+        for k, v in prep["dtypes"].items()
+    )
+    outlier_rows = "\n".join(
+        f"<tr><td><code>{o['variable']}</code></td><td>{o['rule']}</td><td>{o['removed']}</td></tr>"
+        for o in prep["outliers"]
+    )
+
+    passport_text = (ROOT / "data" / "PASSPORT.md").read_text(encoding="utf-8")
+    hashes = re.findall(r"\|\s*`([^`]+)`\s*\|\s*[\d,\s]+\|\s*`([0-9a-fA-F]{64})`\s*\|", passport_text)
+    hash_rows = "\n".join(
+        f"<tr><td><code>{esc(rel)}</code></td><td class=\"mono\">{digest.lower()}</td></tr>"
+        for rel, digest in hashes
+    )
+
+    checker_html = ""
+    if checker:
+        crit = "".join(
+            f"<tr><td>{c['id']}</td><td>{c['status']}</td><td>{c['weight']:.2f}</td></tr>"
+            for c in checker["criteria"]
+        )
+        checker_html = f"""
+        <p>Взвешенное соответствие рубрике: <b>{checker['summary']['weighted_compliance']:.2f}</b>;
+        блокеров: <b>{checker['summary']['blockers']}</b>. Это техническая проверка, не оценка.</p>
+        <table><thead><tr><th>Критерий</th><th>Статус</th><th>Вес</th></tr></thead><tbody>{crit}</tbody></table>
+        """
+
+    runtime_txt = f"{runtime_seconds / 60:.1f} мин" if runtime_seconds else "не измерено"
+    brfss_cv_txt = f"; CV AUC = {brfss['auc_cv']:.3f}" if "auc_cv" in brfss else ""
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    css = """
+    :root { --ink:#1c1c22; --muted:#5b6773; --line:#d9e1e8; --accent:#2f6f4e; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#fff; color:var(--ink); font:14px/1.5 'Segoe UI',Arial,sans-serif; }
+    .wrap { max-width:1120px; margin:0 auto; padding:28px 24px 56px; }
+    .meta { font:12px/1.6 Consolas,monospace; color:var(--muted); border-bottom:1px solid var(--line); padding-bottom:8px; }
+    h1 { font-size:26px; margin:16px 0 4px; }
+    .sub { color:var(--muted); margin:0 0 12px; }
+    h2 { font-size:15px; text-transform:uppercase; letter-spacing:.05em; color:#4a4a5a;
+         margin:26px 0 8px; border-bottom:1px solid #e3e3ec; padding-bottom:4px; }
+    h3 { font-size:14px; margin:16px 0 6px; }
+    table { width:100%; border-collapse:collapse; font-size:12.5px; margin:8px 0 12px; }
+    th { text-align:left; background:#f2f2f7; padding:6px 8px; font-size:10.5px;
+         text-transform:uppercase; letter-spacing:.04em; color:#4a4a5a; border-bottom:1px solid #ddd; }
+    td { padding:5px 8px; border-bottom:1px solid #eee; font-variant-numeric:tabular-nums; vertical-align:top; }
+    tr:last-child td { border-bottom:0; }
+    .mono { font-family:Consolas,monospace; font-size:11px; word-break:break-all; }
+    .note { background:#f7f7fb; border-left:3px solid #6b6b8a; padding:9px 11px; margin:12px 0; }
+    .small { font-size:12px; color:var(--muted); }
+    img { max-width:100%; height:auto; display:block; margin:10px auto; }
+    a { color:var(--accent); }
+    code { background:#eef1f4; padding:1px 4px; border-radius:3px; font-size:12px; }
+    """
+
+    html = f"""<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>w1-hab · инженерный отчёт</title>
+<style>{css}</style>
+</head>
+<body><div class="wrap">
+<div class="meta">W1-HAB · REPORT-ENG · v1.0 · {generated} · seed {SEED} · n={primary['n_model']} · {prep['n_raw']} строк raw · прогон {runtime_txt}</div>
+<h1>Связь привычек с ожирением: инженерный отчёт</h1>
+<p class="sub">То же содержание, что в <a href="report.html">яркой версии</a>; меняется только подача. Наблюдательные данные: ассоциации, не причинность.</p>
+
+<h2>1. Данные и паспорт</h2>
+<table><thead><tr><th>Массив</th><th>Роль</th><th>Лицензия</th></tr></thead><tbody>
+<tr><td>NHANES 2017–2018</td><td>основная модель: питание, сон, PHQ-9, активность, ИМТ</td><td>public domain</td></tr>
+<tr><td>BRFSS 2024</td><td>репликация: стресс, активность, ИМТ</td><td>public domain</td></tr>
+<tr><td>AI4FoodDB</td><td>внешняя проверка: DASS-21, сон, IPAQ; n={ai4['n']}</td><td>CC BY-NC-ND 4.0</td></tr>
+</tbody></table>
+<p class="small">Независимые выборки, не соединяются по участникам. Полные ссылки, единицы и невозможные значения — в <code>data/PASSPORT.md</code>.</p>
+<table><thead><tr><th>Файл</th><th>sha256</th></tr></thead><tbody>{hash_rows}</tbody></table>
+
+<h2>2. Очистка</h2>
+<table><thead><tr><th>Шаг</th><th>n</th><th>Удалено</th></tr></thead><tbody>{steps_rows}</tbody></table>
+<table><thead><tr><th>Переменная</th><th>Пропусков, %</th></tr></thead><tbody>{miss_rows}</tbody></table>
+<details><summary>Типы признаков после очистки</summary>
+<table><thead><tr><th>Признак</th><th>Тип</th><th>Роль</th></tr></thead><tbody>{dtype_rows}</tbody></table>
+</details>
+<table><thead><tr><th>Переменная</th><th>Правило выброса</th><th>Удалено</th></tr></thead><tbody>{outlier_rows}</tbody></table>
+<p class="small">Средним/медианой не заполняли; для модели — complete-case. Итог: {prep['n_raw']:,} → {primary['n_model']:,}; событий {primary['events']:,} ({primary['prevalence']*100:.1f}%). Дубликатов по SEQN нет.</p>
+
+<h2>3. Модель</h2>
+<table><thead><tr><th>Модель</th><th>ROC AUC</th><th>PR AUC</th><th>Accuracy</th><th>Balanced acc.</th><th>Log loss</th><th>Brier</th></tr></thead><tbody>
+{metric_row('Baseline (доля класса)', primary['baseline'])}
+{metric_row('Логистическая регрессия', primary['model'])}
+</tbody></table>
+<p class="small">CV ROC AUC = {primary['cv_mean']:.3f} ± {primary['cv_sd']:.3f} (5-fold, train); test AUC = {primary['model']['roc_auc']:.3f}. Стандартизация и one-hot — внутри Pipeline, fit только на train; тест не участвовал в обучении evaluated-модели.</p>
+<img src="data:image/png;base64,{figs['roc']}" alt="ROC">
+
+<h2>4. Факторы: β, OR, 95% CI</h2>
+<p class="small">β — стандартизованный коэффициент логита; OR — на 1 SD (числовые после log1p) или уровень против референса. p — по bootstrap SE (1000 ресэмплов). ΔAUC — падение ROC AUC при перемешивании закодированного признака (1000 повторов).</p>
+<table><thead><tr><th>Фактор</th><th>Блок</th><th>β</th><th>OR (95% CI)</th><th>p</th><th>Направление</th><th>Сила</th><th>ΔAUC</th></tr></thead><tbody>{factor_rows}</tbody></table>
+<img src="data:image/png;base64,{figs['forest']}" alt="Forest plot">
+
+<h2>5. Блоки</h2>
+<table><thead><tr><th>Блок</th><th>ΔAUC</th><th>95% CI</th></tr></thead><tbody>{block_rows}</tbody></table>
+<p class="small">Интервалы питания, сна и активности пересекаются: ранжирование по точечным оценкам не устойчиво.</p>
+<img src="data:image/png;base64,{figs['blocks']}" alt="Важность блоков">
+<h3>Вторичные исходы</h3>
+<table><thead><tr><th>Исход</th><th>n</th><th>Доля событий</th><th>AUC</th></tr></thead><tbody>{sec_rows}</tbody></table>
+
+<h2>6. Традиционный способ</h2>
+<p class="small">Доли ожирения по группам, простой OR и χ² без поправок. Клетчатка — на 1000 ккал.</p>
+<table><thead><tr><th>Фактор</th><th>Сравнение</th><th>Ожирение в группе</th><th>Ожирение в референсе</th><th>OR (95% CI)</th><th>p</th></tr></thead><tbody>{trad_rows}</tbody></table>
+<table><thead><tr><th>Число флагов</th><th>n</th><th>Ожирение</th></tr></thead><tbody>{score_rows}</tbody></table>
+<p class="small">AUC счёта = {trad['auc_score']:.3f}; логит на четырёх флагах (CV) = {trad['auc_flags_cv']:.3f}; полная модель (CV) = {trad['auc_full_cv']:.3f}.</p>
+<div class="note"><b>Стоимость.</b> Полный прогон конвейера: {runtime_txt} (измерено; 1000 bootstrap + 1000 permutation). Вручную: ~2–3 ч (оценка). Токены сессии учитывает харнес OpenCode; фактические числа — в <code>review/llm_report_review.md</code>.</div>
+
+<h2>7. Внешние проверки</h2>
+<h3>BRFSS 2024 · n = {brfss['n']:,}</h3>
+<table><thead><tr><th>Фактор</th><th>OR (95% CI)</th><th>p</th></tr></thead><tbody>
+<tr><td>Высокий стресс (≥14 дней)</td><td>{brfss['terms']['high_stress']['or']:.2f} ({brfss['terms']['high_stress']['ci_low']:.2f}–{brfss['terms']['high_stress']['ci_high']:.2f})</td><td>{phtml(brfss['terms']['high_stress']['p'])}</td></tr>
+<tr><td>Физическая активность</td><td>{brfss['terms']['active']['or']:.2f} ({brfss['terms']['active']['ci_low']:.2f}–{brfss['terms']['active']['ci_high']:.2f})</td><td>{phtml(brfss['terms']['active']['p'])}</td></tr>
+</tbody></table>
+<p class="small">AUC in-sample = {brfss['auc']:.3f}{brfss_cv_txt}. {brfss['note']}</p>
+<h3>AI4FoodDB · n = {ai4['n']}</h3>
+<table><thead><tr><th>Фактор</th><th>OR на 1 SD (95% CI)</th><th>p</th></tr></thead><tbody>
+<tr><td>Стресс (DASS-21)</td><td>{ai4['terms']['stress_score']['or']:.2f} ({ai4['terms']['stress_score']['ci_low']:.2f}–{ai4['terms']['stress_score']['ci_high']:.2f})</td><td>{phtml(ai4['terms']['stress_score']['p'])}</td></tr>
+<tr><td>Сон, часы</td><td>{ai4['terms']['sleep_hours']['or']:.2f} ({ai4['terms']['sleep_hours']['ci_low']:.2f}–{ai4['terms']['sleep_hours']['ci_high']:.2f})</td><td>{phtml(ai4['terms']['sleep_hours']['p'])}</td></tr>
+<tr><td>Активность (IPAQ MET)</td><td>{ai4['terms']['log_met']['or']:.2f} ({ai4['terms']['log_met']['ci_low']:.2f}–{ai4['terms']['log_met']['ci_high']:.2f})</td><td>{phtml(ai4['terms']['log_met']['p'])}</td></tr>
+<tr><td>Вода (л)</td><td>{ai4['terms']['water_l']['or']:.2f} ({ai4['terms']['water_l']['ci_low']:.2f}–{ai4['terms']['water_l']['ci_high']:.2f})</td><td>{phtml(ai4['terms']['water_l']['p'])}</td></tr>
+</tbody></table>
+<p class="small">CV AUC = {ai4['auc_cv']:.3f}; выборка мала, интерпретация разведочная. {ai4['note']}</p>
+
+<h2>8. Ограничения</h2>
+<ul>
+<li>Наблюдательные данные: ассоциации, не причинные эффекты; конфаундеры и обратная причинность.</li>
+<li>NHANES: один 24-ч дневник, самоотчёт о сне; PHQ-9 — прокси дистресса, не шкала стресса.</li>
+<li>Complete-case: {prep['n_raw']:,} → {primary['n_model']:,}; выборка смещена к полным наблюдениям.</li>
+<li>BRFSS и AI4FoodDB независимы; AI4FoodDB мал (n={ai4['n']}) и интервенционный.</li>
+<li>Калории и вода могут отражать недоучёт и размер тела; их OR — не «эффект».</li>
+</ul>
+
+<h2>9. Воспроизводимость и проверка</h2>
+<p class="small">Seed = {SEED}; pandas {pd.__version__}, numpy {np.__version__}, scikit-learn {__import__('sklearn').__version__}. Запуск: <code>python analysis.py</code>. Данные: <code>data/fetch.py</code>; хеши выше и в паспорте. Артефакты: <code>out/metrics.json</code>, <code>out/factors.csv</code>, <code>out/feature_map.json</code>.</p>
+{checker_html}
+<p class="small">Оценку за практику ставит человек; checker проверяет только соответствие рубрике.</p>
+</div></body></html>"""
+    (REPORT / "report_engineer.html").write_text(html, encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -1332,6 +1640,7 @@ li {{ margin:4px 0; }}
 # ---------------------------------------------------------------------------
 
 def main():
+    t0 = time.perf_counter()
     print("NHANES: подготовка…")
     prep = prepare_nhanes()
     print(f"  model n={len(prep['model'])}, events={int(prep['model']['obesity'].sum())}")
@@ -1348,6 +1657,8 @@ def main():
     print("AI4FoodDB…")
     ai4 = external_ai4food()
 
+    runtime_seconds = time.perf_counter() - t0
+
     results = {
         "primary": primary,
         "traditional": trad,
@@ -1363,6 +1674,7 @@ def main():
     metrics = {
         "project": "w1-hab",
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "runtime_seconds": round(runtime_seconds, 1),
         "seed": SEED,
         "target": {"name": "obesity", "definition": TARGET_DEF},
         "sample": {
@@ -1421,7 +1733,7 @@ def main():
     write_feature_map(prep)
     write_passport()
     print("Отчёт…")
-    build_report(results)
+    build_report(results, runtime_seconds=runtime_seconds)
 
     checker_path = ROOT.parent.parent / "shared" / "checker.py"
     if checker_path.exists():
@@ -1430,7 +1742,7 @@ def main():
         rev = REVIEW / "report.json"
         if rev.exists():
             checker = json.loads(rev.read_text(encoding="utf-8"))
-            build_report(results, checker=checker)
+            build_report(results, checker=checker, runtime_seconds=runtime_seconds)
             subprocess.run([sys.executable, str(checker_path)], cwd=str(ROOT.parent.parent))
     print("Готово:", REPORT / "report.html")
 

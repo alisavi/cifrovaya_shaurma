@@ -1,7 +1,7 @@
 {
   "id": "education",
   "title": "Education: аналитика привычек",
-  "version": 1,
+  "version": 2,
   "status": "active",
   "skills": [
     {
@@ -31,7 +31,9 @@
     "out/factors.csv",
     "out/feature_map.json",
     "report/report.html",
-    "review/report.json"
+    "report/report_engineer.html",
+    "review/report.json",
+    "review/llm_report_review.md"
   ],
   "rules": [
     "Не выдумывать ссылку, лицензию, sha256 и данные.",
