@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "updated": "2026-11-19",
+  "active": "education",
+  "bundles": {
+    "education": {
+      "title": "Education: аналитика привычек",
+      "description": "Набор скиллов для учебного практикума по наблюдательным данным о питании, сне, стрессе и активности.",
+      "file": "education.bundle.json",
+      "version": 1,
+      "skills": ["executor", "checker"]
+    }
+  }
+}

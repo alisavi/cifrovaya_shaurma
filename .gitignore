@@ -1,0 +1,25 @@
+# Секреты и локальное окружение
+.env
+.env.*
+!.env.example
+
+# Данные: у каждого свои, в git не коммитим
+works/*/data/raw/*
+!works/*/data/raw/.gitkeep
+
+# Машинные результаты пересобираются
+works/*/out/*
+!works/*/out/.gitkeep
+
+# Python / Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# ОС и редакторы
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

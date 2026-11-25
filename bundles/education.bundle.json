@@ -1,0 +1,42 @@
+{
+  "id": "education",
+  "title": "Education: аналитика привычек",
+  "version": 1,
+  "status": "active",
+  "skills": [
+    {
+      "id": "executor",
+      "path": ".opencode/skills/executor/SKILL.md",
+      "required": true,
+      "purpose": "Полный цикл: паспорт → признаки → очистка → baseline/логит/permutation importance → отчёт."
+    },
+    {
+      "id": "checker",
+      "path": ".opencode/skills/checker/SKILL.md",
+      "required": true,
+      "purpose": "Проверка артефактов по рубрике, статусы ok / partial / missing, review/report.json."
+    }
+  ],
+  "dependencies": [],
+  "inputs": {
+    "workspace": "works/w1-hab",
+    "spec": "works/w1-hab/spec.md",
+    "passport": "works/w1-hab/data/PASSPORT.md",
+    "raw_dir": "works/w1-hab/data/raw",
+    "rubric": "shared/rubric/practice-v1.json",
+    "glossary": "shared/glossary.md"
+  },
+  "outputs": [
+    "out/metrics.json",
+    "out/factors.csv",
+    "out/feature_map.json",
+    "report/report.html",
+    "review/report.json"
+  ],
+  "rules": [
+    "Не выдумывать ссылку, лицензию, sha256 и данные.",
+    "Не заполнять пропуски средним.",
+    "Не заявлять причинность: только ассоциации и гипотезы.",
+    "Оценку выставляет человек, не агент."
+  ]
+}
