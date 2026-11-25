@@ -67,6 +67,27 @@ python analysis.py        # очистка → baseline → логит → permu
   `shared/rubric/practice-v1.json` (оценку ставит человек);
 - `review/llm_report_review.md` — журнал LLM-ревью отчёта.
 
+## ML-A: модель и handover
+
+ML-A-часть вынесена в пакет [`ml_a/`](ml_a/README.md):
+
+- `ml_a/config.py` — контракт: seed 42, split 75/25, ROC AUC, 18 признаков,
+  четыре блока + контроль; сверяется с `out/feature_map.json`.
+- `ml_a/pipeline.py` — preprocessing внутри Pipeline, один fit на train,
+  permutation importance по закодированным признакам и целым блокам.
+- `ml_a/tests/` — 8 контрактных тестов (split, утечка, importance, roundtrip).
+- [`handover/`](handover/README.md) — модель, test set, contract, CARD и KT-3
+  для ML-B.
+
+```bash
+python ml_a/run.py
+python -m unittest discover -s ml_a/tests -v
+python handover/importance.py --repeats 1000
+```
+
+Handover: `model.joblib`, `test_set.csv` (996 строк), `model_dataset.csv`
+(3 984 строки + split), `contract.json`, `CARD.md`, `kt3_consistency.md`.
+
 ## Структура
 
 ```
@@ -75,6 +96,8 @@ works/w1-hab/
   analysis.py                весь конвейер и генерация двух отчётов
   notebook.ipynb             20 ячеек: паспорт → очистка → модель → факторы
   requirements.txt
+  ml_a/                      ML-A: контракт, Pipeline, тесты, handover
+  handover/                  модель, test set, contract, CARD, KT-3
   data/PASSPORT.md           источники, лицензии, единицы, sha256
   data/fetch.py              воспроизводимая загрузка
   out/                       итоговые артефакты

@@ -64,6 +64,8 @@ works/w1-hab/
   analysis.py
   notebook.ipynb
   requirements.txt
+  ml_a/                      контракт, Pipeline, тесты, handover
+  handover/                  модель, test set, contract, CARD, KT-3
   data/{PASSPORT.md,fetch.py,fetch.sh,raw/}
   out/{metrics.json,factors.csv,feature_map.json}
   report/{report.html,report_engineer.html}

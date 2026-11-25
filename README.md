@@ -13,6 +13,8 @@
 - [Яркий отчёт](works/w1-hab/report/report.html) ·
   [Инженерный отчёт](works/w1-hab/report/report_engineer.html)
 - [Ноутбук с комментариями](works/w1-hab/notebook.ipynb)
+- [ML-A handover для ML-B](works/w1-hab/handover/CARD.md) ·
+  [пакет ML-A](works/w1-hab/ml_a/README.md)
 - [Паспорт данных](works/w1-hab/data/PASSPORT.md)
 - [Спецификация](works/w1-hab/spec.md)
 - [Рубрика](shared/rubric/practice-v1.json) ·
@@ -39,6 +41,8 @@
   объяснением «зачем», `review/report.json`.
 - **MIPT-12** — два стиля отчёта (яркий и инженерный), `.opencode/opencode.json`
   без ключей, папка работы `works/w1-hab`.
+- **ML-A** — пакет `ml_a/`, контракт seed/split/features, 8 тестов,
+  handover для ML-B: модель, test set, contract, CARD, KT-3.
 
 ## Структура
 

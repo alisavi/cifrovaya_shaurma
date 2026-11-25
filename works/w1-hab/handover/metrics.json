@@ -1,0 +1,20 @@
+{
+  "task": "HAB-01",
+  "owner": "ML-A",
+  "seed": 42,
+  "metric": "roc_auc",
+  "baseline_auc": 0.5,
+  "test_auc": 0.6674423758865248,
+  "test_pr_auc": 0.5990169447695737,
+  "test_brier": 0.224152155657484,
+  "cv_auc_mean": 0.6610274655329826,
+  "cv_auc_sd": 0.03398980003203913,
+  "n_model": 3984,
+  "events": 1726,
+  "test_size": 0.25,
+  "stratify": true,
+  "n_train": 2988,
+  "n_test": 996,
+  "test_events": 432,
+  "test_prevalence": 0.43373493975903615
+}

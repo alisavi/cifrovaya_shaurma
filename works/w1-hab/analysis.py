@@ -55,6 +55,16 @@ from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from ml_a.config import N_BOOT, N_PERM, SEED, TEST_SIZE
+from ml_a.handover import write_handover
+from ml_a.pipeline import (
+    EncodedPermutation,
+    block_indices,
+    build_pipeline,
+    build_preprocessor,
+    split_data,
+)
+
 warnings.filterwarnings("ignore", category=UserWarning)
 
 ROOT = Path(__file__).resolve().parent
@@ -65,9 +75,6 @@ REVIEW = ROOT / "review"
 for p in (OUT, REPORT, REVIEW):
     p.mkdir(parents=True, exist_ok=True)
 
-SEED = 42
-N_PERM = 1000
-N_BOOT = 1000
 TARGET_DEF = "BMI >= 30 кг/м² (ожирение, измеренный рост и вес)"
 
 RAW_LABELS = {
@@ -347,19 +354,10 @@ def fit_primary(prep):
     X = df[feats].copy()
     y = df["obesity"].astype(int).values
 
-    pre = ColumnTransformer(
-        [
-            ("num", StandardScaler(), num),
-            ("cat", OneHotEncoder(drop="first", handle_unknown="ignore"), cat),
-        ],
-        remainder="drop",
-    )
-    lr = LogisticRegression(max_iter=2000, random_state=SEED)
-    pipe = Pipeline([("pre", pre), ("lr", lr)])
+    pre = build_preprocessor(num, cat)
+    pipe = build_pipeline(num, cat, SEED)
 
-    Xtr, Xte, ytr, yte = train_test_split(
-        X, y, test_size=0.25, stratify=y, random_state=SEED
-    )
+    Xtr, Xte, ytr, yte = split_data(X, y, TEST_SIZE, SEED)
     base = DummyClassifier(strategy="prior").fit(Xtr, ytr)
     p_base = base.predict_proba(Xte)[:, 1]
     pipe.fit(Xtr, ytr)
@@ -408,34 +406,14 @@ def fit_primary(prep):
     boot_se = boot.std(axis=0, ddof=1)
 
     # ---- permutation importance (individual encoded features + whole blocks) ----
-    pre_te = pipe.named_steps["pre"].transform(Xte)
-    Xte_enc = pre_te.toarray() if sparse.issparse(pre_te) else np.asarray(pre_te)
-    enc_names = list(pipe.named_steps["pre"].get_feature_names_out())
-    lr_te = pipe.named_steps["lr"]
-    base_auc = roc_auc_score(yte, lr_te.predict_proba(Xte_enc)[:, 1])
-
-    def perm_drop(cols, repeats=N_PERM):
-        vals = []
-        for _ in range(repeats):
-            Xp = Xte_enc.copy()
-            idx = rng.permutation(len(Xte_enc))
-            for c in cols:
-                Xp[:, c] = Xte_enc[idx, c]
-            vals.append(base_auc - roc_auc_score(yte, lr_te.predict_proba(Xp)[:, 1]))
-        return float(np.mean(vals)), float(np.percentile(vals, 2.5)), float(np.percentile(vals, 97.5))
-
-    idx_by_name = {n: i for i, n in enumerate(enc_names)}
-    indiv = {n: perm_drop([i], N_PERM) for n, i in idx_by_name.items()}
-
-    def raw_of(enc_name):
-        body = enc_name.split("__", 1)[1]
-        return body.split("_", 1)[0] if enc_name.startswith("cat__") else body
-
-    blocks = {
-        b: [idx_by_name[n] for n in enc_names if prep["block_map"].get(raw_of(n)) == b]
-        for b in ["питание", "сон", "стресс", "активность", "контроль"]
+    perm = EncodedPermutation(pipe, Xte, yte)
+    idx_by_name = {name: index for index, name in enumerate(perm.names)}
+    indiv = {
+        name: perm.drop([index], N_PERM, rng)
+        for name, index in idx_by_name.items()
     }
-    block_imp = {b: perm_drop(cols, N_PERM) for b, cols in blocks.items()}
+    blocks = block_indices(perm.names, prep["block_map"])
+    block_imp = {block: perm.drop(cols, N_PERM, rng) for block, cols in blocks.items()}
 
     # ---- factor table ----
     rows = []
@@ -527,6 +505,17 @@ def fit_primary(prep):
         "df": df,
         "X": X,
         "y": y,
+        "X_train": Xtr,
+        "X_test": Xte,
+        "y_train": ytr,
+        "y_test": yte,
+        "train_index": Xtr.index,
+        "test_index": Xte.index,
+        "n_train": int(len(Xtr)),
+        "n_test": int(len(Xte)),
+        "test_events": int(yte.sum()),
+        "pipe": pipe,
+        "encoded_names": perm.names,
         "yte": yte,
         "p_model": p_model,
         "p_base": p_base,
@@ -1408,6 +1397,7 @@ li {{ margin:4px 0; }}
   <h2>11. Воспроизводимость и проверка</h2>
   <p>Seed = {SEED}; версии: pandas {pd.__version__}, numpy {np.__version__}, scikit-learn {__import__('sklearn').__version__}. Запуск: <code>python analysis.py</code>. Данные: <code>data/fetch.py</code> / <code>data/fetch.sh</code>; хеши — в паспорте.</p>
   <p>Артефакты: <code>out/metrics.json</code>, <code>out/factors.csv</code>, <code>out/feature_map.json</code>, <code>report/report.html</code>.</p>
+  <p class="small">ML-A handover для ML-B: <code>handover/CARD.md</code>, <code>handover/contract.json</code>, <code>handover/model.joblib</code>.</p>
   <p>Инженерная версия того же результата: <a href="report_engineer.html">report/report_engineer.html</a>.</p>
   <h3>Проверка через LLM</h3>
   <p class="small">Отчёт прогнан через LLM-ревью 2026-11-25: исправлены экранирование символа «&lt;» в таблицах, дублирование permutation importance у категориальных уровней и формулировка ограничения по complete-case. Журнал — <code>review/llm_report_review.md</code>.</p>
@@ -1629,6 +1619,7 @@ def build_engineer_report(results, figs, runtime_seconds=None, checker=None):
 
 <h2>9. Воспроизводимость и проверка</h2>
 <p class="small">Seed = {SEED}; pandas {pd.__version__}, numpy {np.__version__}, scikit-learn {__import__('sklearn').__version__}. Запуск: <code>python analysis.py</code>. Данные: <code>data/fetch.py</code>; хеши выше и в паспорте. Артефакты: <code>out/metrics.json</code>, <code>out/factors.csv</code>, <code>out/feature_map.json</code>.</p>
+<p class="small">ML-A handover: <code>handover/CARD.md</code>, <code>handover/contract.json</code>, <code>handover/model.joblib</code>.</p>
 {checker_html}
 <p class="small">Оценку за практику ставит человек; checker проверяет только соответствие рубрике.</p>
 </div></body></html>"""
@@ -1658,6 +1649,9 @@ def main():
     ai4 = external_ai4food()
 
     runtime_seconds = time.perf_counter() - t0
+
+    print("Handover ML-B…")
+    handover = write_handover(prep, primary, trad)
 
     results = {
         "primary": primary,
@@ -1699,6 +1693,21 @@ def main():
             "cv_mean": primary["cv_mean"],
             "cv_sd": primary["cv_sd"],
             "secondary": primary["secondary"],
+            "params": {
+                "type": "LogisticRegression",
+                "max_iter": 2000,
+                "random_state": SEED,
+                "preprocessing": "StandardScaler(num) + OneHotEncoder(drop='first')(cat)",
+            },
+        },
+        "split": {
+            "test_size": TEST_SIZE,
+            "stratify": True,
+            "n_train": primary["n_train"],
+            "n_test": primary["n_test"],
+            "test_events": primary["test_events"],
+            "seed": SEED,
+            "metric": "roc_auc",
         },
         "blocks": [
             {
@@ -1711,6 +1720,7 @@ def main():
         ],
         "traditional": trad,
         "external_checks": {"brfss": brfss, "ai4fooddb": ai4},
+        "ml_a": handover,
         "limitations": [
             "observational data: associations, not causal effects",
             "stress is a PHQ-9 proxy, not a validated stress scale",
