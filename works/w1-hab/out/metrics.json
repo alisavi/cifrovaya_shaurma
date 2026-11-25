@@ -1,0 +1,390 @@
+{
+  "project": "w1-hab",
+  "generated_at": "2026-11-24T00:37:51+00:00",
+  "seed": 42,
+  "target": {
+    "name": "obesity",
+    "definition": "BMI >= 30 кг/м² (ожирение, измеренный рост и вес)"
+  },
+  "sample": {
+    "n_raw": 9254,
+    "n_clean": 4120,
+    "n_model": 3984,
+    "events": 1726,
+    "prevalence": 0.43323293172690763,
+    "duplicates": 0
+  },
+  "cleaning": {
+    "steps": [
+      {
+        "step": "исходный файл (все возрасты)",
+        "n": 9254,
+        "removed": 0
+      },
+      {
+        "step": "возраст 20–79",
+        "n": 5142,
+        "removed": 4112
+      },
+      {
+        "step": "исключены беременные",
+        "n": 5087,
+        "removed": 55
+      },
+      {
+        "step": "надёжный 24-ч дневник питания",
+        "n": 4386,
+        "removed": 701
+      },
+      {
+        "step": "ИМТ 10–70",
+        "n": 4351,
+        "removed": 35
+      },
+      {
+        "step": "систолическое 60–250",
+        "n": 4226,
+        "removed": 125
+      },
+      {
+        "step": "диастолическое 30–150",
+        "n": 4211,
+        "removed": 15
+      },
+      {
+        "step": "пульс 30–200",
+        "n": 4211,
+        "removed": 0
+      },
+      {
+        "step": "сон 0–16 ч",
+        "n": 4180,
+        "removed": 31
+      },
+      {
+        "step": "калории 400–6000",
+        "n": 4120,
+        "removed": 60
+      },
+      {
+        "step": "complete-case по модели",
+        "n": 3984,
+        "removed": 136
+      }
+    ],
+    "dtypes": {
+      "log_kcal": "float64",
+      "log_prot": "float64",
+      "log_fat": "float64",
+      "log_carb": "float64",
+      "log_fiber": "float64",
+      "log_pota": "float64",
+      "log_water": "float64",
+      "SLD012": "float64",
+      "SLQ120": "float64",
+      "SLQ050": "float64",
+      "phq_mean": "float64",
+      "log_mvpa": "float64",
+      "sed": "float64",
+      "RIDAGEYR": "float64",
+      "RIAGENDR": "float64",
+      "RIDRETH1": "float64",
+      "DMDEDUC2": "float64",
+      "SMQ020": "float64"
+    },
+    "missing_pct": [
+      {
+        "variable": "phq_mean",
+        "missing_pct": 2.5
+      },
+      {
+        "variable": "sed",
+        "missing_pct": 0.5
+      },
+      {
+        "variable": "DMDEDUC2",
+        "missing_pct": 0.1
+      },
+      {
+        "variable": "SLQ120",
+        "missing_pct": 0.1
+      }
+    ],
+    "outlier_rules": [
+      {
+        "variable": "BMXBMI",
+        "rule": "ИМТ 10–70",
+        "removed": 35
+      },
+      {
+        "variable": "SBP",
+        "rule": "систолическое 60–250",
+        "removed": 125
+      },
+      {
+        "variable": "DBP",
+        "rule": "диастолическое 30–150",
+        "removed": 15
+      },
+      {
+        "variable": "BPXPLS",
+        "rule": "пульс 30–200",
+        "removed": 0
+      },
+      {
+        "variable": "SLD012",
+        "rule": "сон 0–16 ч",
+        "removed": 31
+      },
+      {
+        "variable": "DR1TKCAL",
+        "rule": "калории 400–6000",
+        "removed": 60
+      }
+    ],
+    "imputation": "none (complete-case); no mean/median filling"
+  },
+  "model": {
+    "baseline": {
+      "roc_auc": 0.5,
+      "pr_auc": 0.43373493975903615,
+      "accuracy": 0.5662650602409639,
+      "balanced_accuracy": 0.5,
+      "log_loss": 0.6843400855641003,
+      "brier": 0.24560938981270913
+    },
+    "logistic": {
+      "roc_auc": 0.6674423758865248,
+      "pr_auc": 0.5990169447695737,
+      "accuracy": 0.6244979919678715,
+      "balanced_accuracy": 0.6058658392434988,
+      "log_loss": 0.6379636023360787,
+      "brier": 0.224152155657484
+    },
+    "cv_auc": [
+      0.6869170055010763,
+      0.6029885764399039,
+      0.6699923691074134,
+      0.6834205295743757,
+      0.661818847042144
+    ],
+    "cv_mean": 0.6610274655329826,
+    "cv_sd": 0.03398980003203913,
+    "secondary": {
+      "hypertension": {
+        "n": 3984,
+        "event_rate": 0.5494477911646586,
+        "auc": 0.7798316795804612
+      },
+      "high_pulse": {
+        "n": 3984,
+        "event_rate": 0.05070281124497992,
+        "auc": 0.6622832980972515
+      },
+      "sleep_disorder": {
+        "n": 3984,
+        "event_rate": 0.2904116465863454,
+        "auc": 0.7521424411348697
+      }
+    }
+  },
+  "blocks": [
+    {
+      "block": "питание",
+      "importance": 0.04129068163908585,
+      "ci_low": 0.021948979675597575,
+      "ci_high": 0.060296821644339305
+    },
+    {
+      "block": "сон",
+      "importance": 0.02020399921197789,
+      "ci_low": 0.00662667044260565,
+      "ci_high": 0.033606986308116545
+    },
+    {
+      "block": "стресс",
+      "importance": 0.001388991495928499,
+      "ci_low": -0.0033047675334910154,
+      "ci_high": 0.005871072202521547
+    },
+    {
+      "block": "активность",
+      "importance": 0.01615206363278167,
+      "ci_low": 0.004145529616495958,
+      "ci_high": 0.02697405683609137
+    },
+    {
+      "block": "контроль",
+      "importance": 0.06114442146046752,
+      "ci_low": 0.03753150036117674,
+      "ci_high": 0.08432092609009709
+    }
+  ],
+  "traditional": {
+    "rows": [
+      {
+        "factor": "Питание: клетчатка",
+        "comparison": "низкая треть vs высокая треть",
+        "n_exposed": 1328,
+        "prev_exposed": 0.4954819277108434,
+        "n_ref": 1328,
+        "prev_ref": 0.35542168674698793,
+        "or": 1.7810776625347837,
+        "ci_low": 1.524488239357739,
+        "ci_high": 2.0808541240808918,
+        "p": 3.8553119665932236e-13
+      },
+      {
+        "factor": "Сон",
+        "comparison": "<7 ч vs 7–9 ч",
+        "n_exposed": 1084,
+        "prev_exposed": 0.4677121771217712,
+        "n_ref": 2514,
+        "prev_ref": 0.4196499602227526,
+        "or": 1.2151642340263005,
+        "ci_low": 1.053026410344156,
+        "ci_high": 1.4022669338123503,
+        "p": 0.008486882311231198
+      },
+      {
+        "factor": "Стресс",
+        "comparison": "PHQ-9 ≥1 vs <1",
+        "n_exposed": 435,
+        "prev_exposed": 0.5448275862068965,
+        "n_ref": 3549,
+        "prev_ref": 0.4195548041701888,
+        "or": 1.655982253698842,
+        "ci_low": 1.3556133776800425,
+        "ci_high": 2.0229051068074804,
+        "p": 8.421865925841017e-07
+      },
+      {
+        "factor": "Активность",
+        "comparison": "<150 vs ≥150 мин/нед",
+        "n_exposed": 1560,
+        "prev_exposed": 0.45705128205128204,
+        "n_ref": 2424,
+        "prev_ref": 0.4179042904290429,
+        "or": 1.1725292566179222,
+        "ci_low": 1.0314348728060518,
+        "ci_high": 1.332924544120485,
+        "p": 0.016343332590253296
+      }
+    ],
+    "score": [
+      {
+        "score": 0,
+        "n": 1101,
+        "obesity_pct": 35.33151680290645
+      },
+      {
+        "score": 1,
+        "n": 1641,
+        "obesity_pct": 43.631931748933575
+      },
+      {
+        "score": 2,
+        "n": 984,
+        "obesity_pct": 48.67886178861789
+      },
+      {
+        "score": 3,
+        "n": 234,
+        "obesity_pct": 54.27350427350427
+      },
+      {
+        "score": 4,
+        "n": 24,
+        "obesity_pct": 62.5
+      }
+    ],
+    "auc_score": 0.563755161254897,
+    "auc_flags_cv": 0.5699348012338079,
+    "auc_full_cv": 0.6610274655329826,
+    "n": 3984
+  },
+  "external_checks": {
+    "brfss": {
+      "n": 50000,
+      "event_rate": 0.34574,
+      "auc": 0.6108819391618814,
+      "terms": {
+        "high_stress": {
+          "or": 1.2696994003578894,
+          "ci_low": 1.20207325587652,
+          "ci_high": 1.3411300512576971,
+          "p": 1.2234007261272804e-17
+        },
+        "active": {
+          "or": 0.5723916873320088,
+          "ci_low": 0.5467474470829499,
+          "ci_high": 0.5992387261701789,
+          "p": 8.54912098444791e-126
+        }
+      },
+      "note": "BRFSS 2024 содержит стресс (дни плохого психического здоровья), активность и ИМТ; сна и макронутриентов в основном массиве нет."
+    },
+    "ai4fooddb": {
+      "n": 95,
+      "event_rate": 0.4842105263157895,
+      "auc_cv": 0.4,
+      "terms": {
+        "stress_score": {
+          "or": 0.9439182052535895,
+          "ci_low": 0.6241461593167417,
+          "ci_high": 1.427520725569349,
+          "p": 0.7844945512199838
+        },
+        "sleep_hours": {
+          "or": 0.9899334938348321,
+          "ci_low": 0.6443332476973823,
+          "ci_high": 1.5209029267356535,
+          "p": 0.9631681330140065
+        },
+        "log_met": {
+          "or": 0.9567080316980741,
+          "ci_low": 0.6138860350572839,
+          "ci_high": 1.4909774871001815,
+          "p": 0.8449998153179532
+        },
+        "water_l": {
+          "or": 0.857674641699305,
+          "ci_low": 0.5469709439625543,
+          "ci_high": 1.3448717873108644,
+          "p": 0.5035260081067368
+        },
+        "age": {
+          "or": 1.1391317627752233,
+          "ci_low": 0.7310896534928905,
+          "ci_high": 1.774913879253807,
+          "p": 0.5648137856462352
+        },
+        "sex_male": {
+          "or": 1.5076874404520977,
+          "ci_low": 0.6118115976557984,
+          "ci_high": 3.715394456081955,
+          "p": 0.37226560438686485
+        }
+      },
+      "note": "AI4FoodDB: DS3 (питание) содержит только фото и метки, без макронутриентов; нутриционный блок в модели ограничен водой (число приёмов пищи показано описательно).",
+      "water_meals": {
+        "water_ml_mean": 1312.0,
+        "meals_mean": 3.65625
+      }
+    }
+  },
+  "limitations": [
+    "observational data: associations, not causal effects",
+    "stress is a PHQ-9 proxy, not a validated stress scale",
+    "complete-case analysis loses rows with missing data",
+    "three sources are independent and cannot be joined at person level",
+    "self-reported diet and sleep; reverse causality and under-reporting are possible"
+  ],
+  "causal_claim": false,
+  "versions": {
+    "python": "3.12.10",
+    "pandas": "2.2.2",
+    "numpy": "1.26.4",
+    "scikit-learn": "1.6.0"
+  }
+}

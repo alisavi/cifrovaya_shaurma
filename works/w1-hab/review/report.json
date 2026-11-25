@@ -1,0 +1,319 @@
+{
+  "rubric": "practice-v1",
+  "checked_at": "2026-11-24T00:37:56+00:00",
+  "artifacts": {
+    "works/w1-hab/spec.md": "ok",
+    "works/w1-hab/data/PASSPORT.md": "ok",
+    "works/w1-hab/out/metrics.json": "ok",
+    "works/w1-hab/out/factors.csv": "ok",
+    "works/w1-hab/report/report.html": "ok",
+    "works/w1-hab/review/report.json": "ok"
+  },
+  "criteria": [
+    {
+      "id": "passport",
+      "title": "Паспорт источника полон и проверен",
+      "status": "ok",
+      "weight": 0.12,
+      "evidence": [
+        "ссылка на источник: URL/DOI в PASSPORT.md",
+        "лицензия: раздел лицензий",
+        "sha256 указан: 11 хешей в паспорте",
+        "фактический хеш совпадает: проверено файлов: 11, совпало: 11"
+      ],
+      "checks": [
+        {
+          "check": "ссылка на источник",
+          "status": "ok",
+          "evidence": "URL/DOI в PASSPORT.md"
+        },
+        {
+          "check": "лицензия",
+          "status": "ok",
+          "evidence": "раздел лицензий"
+        },
+        {
+          "check": "sha256 указан",
+          "status": "ok",
+          "evidence": "11 хешей в паспорте"
+        },
+        {
+          "check": "фактический хеш совпадает",
+          "status": "ok",
+          "evidence": "проверено файлов: 11, совпало: 11"
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "id": "structure",
+      "title": "Структура работы на месте",
+      "status": "ok",
+      "weight": 0.06,
+      "evidence": [
+        "spec.md: вопрос, данные, метод, границы: works/w1-hab/spec.md",
+        "data/raw, out, report, review: каталоги на месте",
+        "скрипт загрузки данных: data/fetch.sh"
+      ],
+      "checks": [
+        {
+          "check": "spec.md: вопрос, данные, метод, границы",
+          "status": "ok",
+          "evidence": "works/w1-hab/spec.md"
+        },
+        {
+          "check": "data/raw, out, report, review",
+          "status": "ok",
+          "evidence": "каталоги на месте"
+        },
+        {
+          "check": "скрипт загрузки данных",
+          "status": "ok",
+          "evidence": "data/fetch.sh"
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "id": "features",
+      "title": "Четыре блока признаков собраны",
+      "status": "ok",
+      "weight": 0.15,
+      "evidence": [
+        "четыре блока различены: блоки: питание, сон, стресс, активность",
+        "таблица соответствия колонок блокам: out/feature_map.json",
+        "целевая переменная определена: obesity: BMI >= 30 кг/м² (ожирение, измеренный рост и вес)"
+      ],
+      "checks": [
+        {
+          "check": "четыре блока различены",
+          "status": "ok",
+          "evidence": "блоки: питание, сон, стресс, активность"
+        },
+        {
+          "check": "таблица соответствия колонок блокам",
+          "status": "ok",
+          "evidence": "out/feature_map.json"
+        },
+        {
+          "check": "целевая переменная определена",
+          "status": "ok",
+          "evidence": "obesity: BMI >= 30 кг/м² (ожирение, измеренный рост и вес)"
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "id": "cleaning",
+      "title": "Очистка данных выполнена и описана",
+      "status": "ok",
+      "weight": 0.15,
+      "evidence": [
+        "приведены типы: sample/типы описаны в spec и metrics.json",
+        "учтены пропуски: missing_pct: 4 переменных",
+        "дубликаты: duplicates = 0",
+        "выбросы с правилами: правил: 6",
+        "средним не заполняли: none (complete-case); no mean/median filling",
+        "n до/после: 9254 → 3984; шагов: 11"
+      ],
+      "checks": [
+        {
+          "check": "приведены типы",
+          "status": "ok",
+          "evidence": "sample/типы описаны в spec и metrics.json"
+        },
+        {
+          "check": "учтены пропуски",
+          "status": "ok",
+          "evidence": "missing_pct: 4 переменных"
+        },
+        {
+          "check": "дубликаты",
+          "status": "ok",
+          "evidence": "duplicates = 0"
+        },
+        {
+          "check": "выбросы с правилами",
+          "status": "ok",
+          "evidence": "правил: 6"
+        },
+        {
+          "check": "средним не заполняли",
+          "status": "ok",
+          "evidence": "none (complete-case); no mean/median filling"
+        },
+        {
+          "check": "n до/после",
+          "status": "ok",
+          "evidence": "9254 → 3984; шагов: 11"
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "id": "modeling",
+      "title": "Baseline → логистическая регрессия → permutation importance",
+      "status": "ok",
+      "weight": 0.2,
+      "evidence": [
+        "константный baseline: baseline AUC=0.5",
+        "логистическая регрессия, train/test: test AUC=0.6674423758865248, CV=0.6610274655329826",
+        "permutation importance: out/factors.csv: perm_importance + 95% CI",
+        "метрики и random_state: seed=42"
+      ],
+      "checks": [
+        {
+          "check": "константный baseline",
+          "status": "ok",
+          "evidence": "baseline AUC=0.5"
+        },
+        {
+          "check": "логистическая регрессия, train/test",
+          "status": "ok",
+          "evidence": "test AUC=0.6674423758865248, CV=0.6610274655329826"
+        },
+        {
+          "check": "permutation importance",
+          "status": "ok",
+          "evidence": "out/factors.csv: perm_importance + 95% CI"
+        },
+        {
+          "check": "метрики и random_state",
+          "status": "ok",
+          "evidence": "seed=42"
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "id": "factors",
+      "title": "Факторы описаны направлением, силой и 95% CI",
+      "status": "ok",
+      "weight": 0.15,
+      "evidence": [
+        "направление по каждому фактору: строк: 24",
+        "мера силы: strength + |coef|",
+        "95% CI: ci_low/ci_high в factors.csv",
+        "неинформативные не выданы за значимые: direction=unclear: 10 из 24 (оставлены как unclear)"
+      ],
+      "checks": [
+        {
+          "check": "направление по каждому фактору",
+          "status": "ok",
+          "evidence": "строк: 24"
+        },
+        {
+          "check": "мера силы",
+          "status": "ok",
+          "evidence": "strength + |coef|"
+        },
+        {
+          "check": "95% CI",
+          "status": "ok",
+          "evidence": "ci_low/ci_high в factors.csv"
+        },
+        {
+          "check": "неинформативные не выданы за значимые",
+          "status": "ok",
+          "evidence": "direction=unclear: 10 из 24 (оставлены как unclear)"
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "id": "report",
+      "title": "Отчёт читается человеком",
+      "status": "ok",
+      "weight": 0.08,
+      "evidence": [
+        "report.html существует: 327378 байт",
+        "секция «Традиционный способ»: найдена в HTML",
+        "согласован с metrics.json / factors.csv: AUC и n модели присутствуют в отчёте"
+      ],
+      "checks": [
+        {
+          "check": "report.html существует",
+          "status": "ok",
+          "evidence": "327378 байт"
+        },
+        {
+          "check": "секция «Традиционный способ»",
+          "status": "ok",
+          "evidence": "найдена в HTML"
+        },
+        {
+          "check": "согласован с metrics.json / factors.csv",
+          "status": "ok",
+          "evidence": "AUC и n модели присутствуют в отчёте"
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "id": "causality",
+      "title": "Причинность не заявляется",
+      "status": "ok",
+      "weight": 0.05,
+      "evidence": [
+        "нет причинных формулировок: запрещённых фраз нет",
+        "выводы как гипотезы/ассоциации: формулировки «связан/гипотеза/ассоциация»",
+        "ограничения наблюдательных данных: раздел «Ограничения»"
+      ],
+      "checks": [
+        {
+          "check": "нет причинных формулировок",
+          "status": "ok",
+          "evidence": "запрещённых фраз нет"
+        },
+        {
+          "check": "выводы как гипотезы/ассоциации",
+          "status": "ok",
+          "evidence": "формулировки «связан/гипотеза/ассоциация»"
+        },
+        {
+          "check": "ограничения наблюдательных данных",
+          "status": "ok",
+          "evidence": "раздел «Ограничения»"
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "id": "reproducibility",
+      "title": "Результат воспроизводим",
+      "status": "ok",
+      "weight": 0.04,
+      "evidence": [
+        "seed: seed=42",
+        "версии библиотек: python 3.12.10, pandas 2.2.2, numpy 1.26.4, scikit-learn 1.6.0",
+        "скрипт загрузки данных: data/fetch.sh"
+      ],
+      "checks": [
+        {
+          "check": "seed",
+          "status": "ok",
+          "evidence": "seed=42"
+        },
+        {
+          "check": "версии библиотек",
+          "status": "ok",
+          "evidence": "python 3.12.10, pandas 2.2.2, numpy 1.26.4, scikit-learn 1.6.0"
+        },
+        {
+          "check": "скрипт загрузки данных",
+          "status": "ok",
+          "evidence": "data/fetch.sh"
+        }
+      ],
+      "blockers": []
+    }
+  ],
+  "summary": {
+    "weighted_compliance": 1.0,
+    "blockers": 0,
+    "status": "ok"
+  },
+  "blockers": [],
+  "forbidden_issues": [],
+  "note": "Оценку выставляет человек; здесь только соответствие рубрике. weighted_compliance — техническая доля выполненных критериев."
+}

@@ -7,9 +7,12 @@
 works/*/data/raw/*
 !works/*/data/raw/.gitkeep
 
-# Машинные результаты пересобираются
+# Машинные результаты пересобираются; в git — только итоговые артефакты
 works/*/out/*
 !works/*/out/.gitkeep
+!works/*/out/metrics.json
+!works/*/out/factors.csv
+!works/*/out/feature_map.json
 
 # Python / Jupyter
 __pycache__/
