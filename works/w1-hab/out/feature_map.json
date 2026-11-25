@@ -112,8 +112,10 @@
     "mvpa": "2×минуты интенсивной + минуты умеренной активности в неделю"
   },
   "secondary_outcomes": {
-    "hypertension": "САД ≥130 или ДАД ≥80 или приём гипотензивных",
-    "high_pulse": "пульс >90",
-    "sleep_disorder": "когда-либо диагностировано нарушение сна"
+    "hypertension": "secondary: САД ≥130 или ДАД ≥80 или приём гипотензивных",
+    "hypertension_140_90": "sensitivity: САД ≥140 или ДАД ≥90 или приём гипотензивных",
+    "high_pulse_80": "secondary: пульс ≥80",
+    "high_pulse": "sensitivity: пульс >90",
+    "sleep_disorder": "secondary: когда-либо диагностировано нарушение сна (SLQ050=1)"
   }
 }

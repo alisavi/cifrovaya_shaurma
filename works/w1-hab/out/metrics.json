@@ -1,7 +1,7 @@
 {
   "project": "w1-hab",
-  "generated_at": "2026-11-25T02:26:29+00:00",
-  "runtime_seconds": 78.1,
+  "generated_at": "2026-11-25T12:07:48+00:00",
+  "runtime_seconds": 80.4,
   "seed": 42,
   "target": {
     "name": "obesity",
@@ -176,6 +176,16 @@
         "n": 3984,
         "event_rate": 0.5494477911646586,
         "auc": 0.7798316795804612
+      },
+      "hypertension_140_90": {
+        "n": 3984,
+        "event_rate": 0.39457831325301207,
+        "auc": 0.8365002806155819
+      },
+      "high_pulse_80": {
+        "n": 3984,
+        "event_rate": 0.22289156626506024,
+        "auc": 0.6152373303536095
       },
       "high_pulse": {
         "n": 3984,
@@ -383,7 +393,34 @@
           "p": 0.37226560438686485
         }
       },
+      "v0_labels": {
+        "obesity": {
+          "n": 100,
+          "event_rate": 0.5,
+          "threshold": "BMI >= 30"
+        },
+        "hypertension": {
+          "n": 99,
+          "event_rate": 0.5454545454545454,
+          "threshold": "SBP >= 130 or DBP >= 80"
+        },
+        "high_hr": {
+          "n": 99,
+          "event_rate": 0.20202020202020202,
+          "threshold": "HR >= 80"
+        },
+        "sleep_disturbance": {
+          "n": 100,
+          "event_rate": 0.31,
+          "threshold": "insomnia == 1 or somnolence == 1"
+        }
+      },
       "note": "AI4FoodDB: DS3 (питание) содержит только фото и метки, без макронутриентов; нутриционный блок в модели ограничен водой (число приёмов пищи показано описательно).",
+      "sleep_disturbance": {
+        "n": 100,
+        "event_rate": 0.31,
+        "definition": "DS2 insomnia or somnolence (external secondary, not primary)"
+      },
       "water_meals": {
         "water_ml_mean": 1312.0,
         "meals_mean": 3.65625

@@ -223,7 +223,11 @@ def prepare_nhanes():
     df["hypertension"] = (
         (df["SBP"] >= 130) | (df["DBP"] >= 80) | (df["BPQ050A"] == 1)
     ).astype(int)
+    df["hypertension_140_90"] = (
+        (df["SBP"] >= 140) | (df["DBP"] >= 90) | (df["BPQ050A"] == 1)
+    ).astype(int)
     df["high_pulse"] = (df["BPXPLS"] > 90).astype(int)
+    df["high_pulse_80"] = (df["BPXPLS"] >= 80).astype(int)
     df["sleep_disorder"] = (df["SLQ050"] == 1).astype(int)
 
     steps = []
@@ -477,7 +481,13 @@ def fit_primary(prep):
             ("cat", OneHotEncoder(drop="first", handle_unknown="ignore"), cat2),
         ]
     )
-    for out in ["hypertension", "high_pulse", "sleep_disorder"]:
+    for out in [
+        "hypertension",
+        "hypertension_140_90",
+        "high_pulse_80",
+        "high_pulse",
+        "sleep_disorder",
+    ]:
         d2 = df.dropna(subset=feats2 + [out])
         if d2[out].nunique() < 2:
             continue
@@ -704,8 +714,9 @@ def external_ai4food():
     b = RAW / "ai4food" / "extracted"
     pi = pd.read_csv(b / "participant_information.csv")
     life = pd.read_csv(b / "DS2_LifestyleHealth" / "lifestyle.csv")
-    a1 = pd.read_csv(b / "DS1_AnthropometricMeasurements" / "anthropometrics.csv")
-    a1 = a1[a1["visit"] == 2]
+    a1_full = pd.read_csv(b / "DS1_AnthropometricMeasurements" / "anthropometrics.csv")
+    a1 = a1_full[a1_full["visit"] == 2]
+    vit = pd.read_csv(b / "DS6_VitalSigns" / "vital_signs.csv")
     ip = pd.read_csv(b / "DS7_PhysicalActivity" / "IPAQ.csv")
     ip = ip[ip["visit"] == 2]
     sl = pd.read_csv(b / "DS8_SleepActivity" / "OviedoSleepQuestionnaire.csv")
@@ -725,6 +736,9 @@ def external_ai4food():
     d["sex_male"] = (d["sex"] == "Male").astype(int)
     d["log_met"] = np.log1p(d["total_met"])
     d["water_l"] = d["water_ml"] / 1000
+    d["sleep_disturbance"] = (
+        (d["insomnia"] == 1) | (d["somnolence"] == 1)
+    ).astype(int)
 
     feats = ["stress_score", "sleep_hours", "log_met", "water_l", "age", "sex_male"]
     cc = d.dropna(subset=feats + ["obesity"]).copy()
@@ -753,13 +767,55 @@ def external_ai4food():
             "ci_high": float(np.exp(m.conf_int().loc[c, 1])),
             "p": float(m.pvalues[c]),
         }
+
+    v0 = vit[vit["visit"] == 0]
+    v0_bmi = a1_full[a1_full["visit"] == 0]
+    v0_bp = v0.dropna(
+        subset=["systolic_blood_pressure_mmhg", "dyastolic_blood_pressure_mmhg"]
+    )
+    v0_hr = v0["heart_rate_bpm"].dropna()
+    v0_labels = {
+        "obesity": {
+            "n": int(len(v0_bmi)),
+            "event_rate": float((v0_bmi["bmi_kg_m2"] >= 30).mean()),
+            "threshold": "BMI >= 30",
+        },
+        "hypertension": {
+            "n": int(len(v0_bp)),
+            "event_rate": float(
+                (
+                    (v0_bp["systolic_blood_pressure_mmhg"] >= 130)
+                    | (v0_bp["dyastolic_blood_pressure_mmhg"] >= 80)
+                ).mean()
+            ),
+            "threshold": "SBP >= 130 or DBP >= 80",
+        },
+        "high_hr": {
+            "n": int(len(v0_hr)),
+            "event_rate": float((v0_hr >= 80).mean()),
+            "threshold": "HR >= 80",
+        },
+        "sleep_disturbance": {
+            "n": int(len(life)),
+            "event_rate": float(
+                ((life["insomnia"] == 1) | (life["somnolence"] == 1)).mean()
+            ),
+            "threshold": "insomnia == 1 or somnolence == 1",
+        },
+    }
     return {
         "n": int(len(cc)),
         "event_rate": float(cc["obesity"].mean()),
         "auc_cv": float(np.mean(cv)),
         "terms": terms,
+        "v0_labels": v0_labels,
         "note": "AI4FoodDB: DS3 (питание) содержит только фото и метки, без макронутриентов; "
         "нутриционный блок в модели ограничен водой (число приёмов пищи показано описательно).",
+        "sleep_disturbance": {
+            "n": int(d["sleep_disturbance"].notna().sum()),
+            "event_rate": float(d["sleep_disturbance"].mean()),
+            "definition": "DS2 insomnia or somnolence (external secondary, not primary)",
+        },
         "water_meals": {
             "water_ml_mean": float(d["water_ml"].mean()),
             "meals_mean": float(pd.to_numeric(d["daily_meals"], errors="coerce").mean()),
@@ -786,9 +842,11 @@ def write_feature_map(prep):
             "mvpa": "2×минуты интенсивной + минуты умеренной активности в неделю",
         },
         "secondary_outcomes": {
-            "hypertension": "САД ≥130 или ДАД ≥80 или приём гипотензивных",
-            "high_pulse": "пульс >90",
-            "sleep_disorder": "когда-либо диагностировано нарушение сна",
+            "hypertension": "secondary: САД ≥130 или ДАД ≥80 или приём гипотензивных",
+            "hypertension_140_90": "sensitivity: САД ≥140 или ДАД ≥90 или приём гипотензивных",
+            "high_pulse_80": "secondary: пульс ≥80",
+            "high_pulse": "sensitivity: пульс >90",
+            "sleep_disorder": "secondary: когда-либо диагностировано нарушение сна (SLQ050=1)",
         },
     }
     (OUT / "feature_map.json").write_text(
@@ -846,13 +904,32 @@ BRFSS и AI4FoodDB используются как внешние проверк
 |---|---:|---|
 {rows}
 
-## 3. Единица наблюдения и целевая переменная
+## 3. Единица наблюдения и целевые переменные
 
 - NHANES: один участник, один цикл; 24-часовой дневник питания.
 - BRFSS: один респондент, самоотчёт.
 - AI4FoodDB: один участник, визит 2 (через ~15 дней интервенции).
-- Target: **{TARGET_DEF}**. Вторичные исходы: гипертензия, пульс >90,
-  диагностированное нарушение сна.
+
+### 3.1 Метки, роли и пороги (КТ-1)
+
+| Метка | Роль | Определение | Данные | Порог |
+|---|---|---|---|---|
+| `obesity` (`y_obesity`) | **primary** | ИМТ ≥ 30 кг/м² | NHANES (измеренный); BRFSS — внешняя проверка | 30 |
+| `hypertension` (`y_hypertension`) | secondary | САД ≥130 или ДАД ≥80 или приём гипотензивных | NHANES | 130/80 |
+| `hypertension_140_90` | sensitivity | САД ≥140 или ДАД ≥90 или приём гипотензивных | NHANES | 140/90 |
+| `high_pulse_80` (`y_high_hr`) | secondary | пульс ≥80 уд/мин | NHANES | 80 |
+| `high_pulse` | sensitivity | пульс >90 уд/мин | NHANES | 90 |
+| `sleep_disorder` (`y_sleep_disturbance`) | secondary | когда-либо диагностировано нарушение сна (`SLQ050=1`) | NHANES | диагноз |
+| `sleep_disturbance_ai4` | external secondary | DS2 insomnia или somnolence | AI4FoodDB DS2 (n=100) | любой симптом |
+
+**Важно:** 50 / 54.5 / 20.2 / 31% — это AI4FoodDB baseline V0
+(DS1/DS6/DS2, n=99–100) из корневого `PASSPORT.md`, а не NHANES. Основная
+модель ML-A построена на NHANES 2017–2018 (n=3 984), где измерены все четыре
+блока; BRFSS и AI4FoodDB — независимые внешние проверки. Разница циклов
+NHANES (2017–2018 vs 2021–2023 в корневом паспорте) — известное ограничение.
+`DS2.insomnia/somnolence` и Oviedo — только внешний secondary, не primary.
+
+**Target:** **{TARGET_DEF}**. n и доли событий — в `out/metrics.json`.
 
 ## 4. Смысл и единицы ключевых колонок
 
@@ -1137,6 +1214,17 @@ def build_report(results, checker=None, runtime_seconds=None):
         f"<tr><td>{k}</td><td>{v['n']}</td><td>{v['event_rate']*100:.0f}%</td><td>{v['auc']:.3f}</td></tr>"
         for k, v in primary["secondary"].items()
     )
+    ai4_label_ru = {
+        "obesity": "Ожирение (ИМТ ≥30)",
+        "hypertension": "Гипертензия 130/80",
+        "high_hr": "Пульс ≥80",
+        "sleep_disturbance": "Insomnia/somnolence",
+    }
+    ai4_v0_rows = "\n".join(
+        f"<tr><td>{ai4_label_ru.get(k, k)}</td><td>{v['n']}</td>"
+        f"<td>{v['event_rate']*100:.1f}%</td><td>{v['threshold']}</td></tr>"
+        for k, v in ai4["v0_labels"].items()
+    )
 
     checker_html = ""
     if checker:
@@ -1247,7 +1335,7 @@ li {{ margin:4px 0; }}
 
 <div class="card">
   <h2>1. Вопрос и данные</h2>
-  <p><b>Вопрос.</b> Насколько сильно питание, сон, стресс и активность связаны с показателями здоровья и какой блок сильнее? Основной исход — ожирение (ИМТ ≥ 30), измеренный в NHANES. Дополнительно: гипертензия, пульс &gt; 90, диагностированное нарушение сна.</p>
+  <p><b>Вопрос.</b> Насколько сильно питание, сон, стресс и активность связаны с показателями здоровья и какой блок сильнее? Основной исход — ожирение (ИМТ ≥ 30), измеренный в NHANES. Дополнительно: гипертензия (130/80; чувствительность 140/90), пульс ≥80 (чувствительность &gt;90), диагностированное нарушение сна.</p>
   <table>
     <thead><tr><th>Массив</th><th>Роль</th><th>Что даёт</th><th>Лицензия</th></tr></thead>
     <tbody>
@@ -1330,6 +1418,7 @@ li {{ margin:4px 0; }}
   <p class="small muted">OR — на 1 SD для числовых признаков (после log1p) и «уровень против референса» для категорий. Полная таблица — <code>out/factors.csv</code>.</p>
   <h3>Вторичные исходы</h3>
   <table><thead><tr><th>Исход</th><th>n</th><th>Доля событий</th><th>AUC</th></tr></thead><tbody>{sec_rows}</tbody></table>
+  <p class="small muted">Secondary: гипертензия 130/80, пульс ≥80, диагностированное нарушение сна. Sensitivity: гипертензия 140/90 и пульс &gt;90.</p>
 </div>
 
 <div class="card">
@@ -1368,7 +1457,10 @@ li {{ margin:4px 0; }}
     <tr><td>Активность (IPAQ MET)</td><td>{ai4['terms']['log_met']['or']:.2f} ({ai4['terms']['log_met']['ci_low']:.2f}–{ai4['terms']['log_met']['ci_high']:.2f})</td><td>{phtml(ai4['terms']['log_met']['p'])}</td></tr>
     <tr><td>Вода (л)</td><td>{ai4['terms']['water_l']['or']:.2f} ({ai4['terms']['water_l']['ci_low']:.2f}–{ai4['terms']['water_l']['ci_high']:.2f})</td><td>{phtml(ai4['terms']['water_l']['p'])}</td></tr>
   </tbody></table>
-  <p class="small muted">{ai4['note']}</p>
+  <p class="small muted">DS2 insomnia/somnolence: {ai4['sleep_disturbance']['event_rate']*100:.0f}% (n={ai4['sleep_disturbance']['n']}); внешний secondary, не primary. {ai4['note']}</p>
+  <h3>AI4FoodDB V0: метки из паспорта (external)</h3>
+  <table><thead><tr><th>Метка</th><th>n</th><th>Доля «1»</th><th>Порог</th></tr></thead><tbody>{ai4_v0_rows}</tbody></table>
+  <p class="small muted">Эти метки — AI4FoodDB baseline V0 (n≈100), не NHANES. Они не используются как primary: выборка мала и интервенционная; пороги совпадают с корневым PASSPORT.md.</p>
 </div>
 
 <div class="card">
@@ -1454,6 +1546,17 @@ def build_engineer_report(results, figs, runtime_seconds=None, checker=None):
     sec_rows = "\n".join(
         f"<tr><td>{k}</td><td>{v['n']}</td><td>{v['event_rate']*100:.0f}%</td><td>{v['auc']:.3f}</td></tr>"
         for k, v in primary["secondary"].items()
+    )
+    ai4_label_ru = {
+        "obesity": "Ожирение (ИМТ ≥30)",
+        "hypertension": "Гипертензия 130/80",
+        "high_hr": "Пульс ≥80",
+        "sleep_disturbance": "Insomnia/somnolence",
+    }
+    ai4_v0_rows = "\n".join(
+        f"<tr><td>{ai4_label_ru.get(k, k)}</td><td>{v['n']}</td>"
+        f"<td>{v['event_rate']*100:.1f}%</td><td>{v['threshold']}</td></tr>"
+        for k, v in ai4["v0_labels"].items()
     )
     trad_rows = "\n".join(
         "<tr>"
@@ -1584,6 +1687,7 @@ def build_engineer_report(results, figs, runtime_seconds=None, checker=None):
 <img src="data:image/png;base64,{figs['blocks']}" alt="Важность блоков">
 <h3>Вторичные исходы</h3>
 <table><thead><tr><th>Исход</th><th>n</th><th>Доля событий</th><th>AUC</th></tr></thead><tbody>{sec_rows}</tbody></table>
+<p class="small">Secondary: гипертензия 130/80, пульс ≥80, нарушение сна. Sensitivity: 140/90, пульс &gt;90.</p>
 
 <h2>6. Традиционный способ</h2>
 <p class="small">Доли ожирения по группам, простой OR и χ² без поправок. Клетчатка — на 1000 ккал.</p>
@@ -1606,7 +1710,10 @@ def build_engineer_report(results, figs, runtime_seconds=None, checker=None):
 <tr><td>Активность (IPAQ MET)</td><td>{ai4['terms']['log_met']['or']:.2f} ({ai4['terms']['log_met']['ci_low']:.2f}–{ai4['terms']['log_met']['ci_high']:.2f})</td><td>{phtml(ai4['terms']['log_met']['p'])}</td></tr>
 <tr><td>Вода (л)</td><td>{ai4['terms']['water_l']['or']:.2f} ({ai4['terms']['water_l']['ci_low']:.2f}–{ai4['terms']['water_l']['ci_high']:.2f})</td><td>{phtml(ai4['terms']['water_l']['p'])}</td></tr>
 </tbody></table>
-<p class="small">CV AUC = {ai4['auc_cv']:.3f}; выборка мала, интерпретация разведочная. {ai4['note']}</p>
+<p class="small">CV AUC = {ai4['auc_cv']:.3f}; выборка мала, интерпретация разведочная. DS2 insomnia/somnolence: {ai4['sleep_disturbance']['event_rate']*100:.0f}% (n={ai4['sleep_disturbance']['n']}); внешний secondary. {ai4['note']}</p>
+<h3>AI4FoodDB V0: метки из паспорта (external)</h3>
+<table><thead><tr><th>Метка</th><th>n</th><th>Доля «1»</th><th>Порог</th></tr></thead><tbody>{ai4_v0_rows}</tbody></table>
+<p class="small">AI4 baseline V0, n≈100; не primary, пороги совпадают с корневым PASSPORT.md.</p>
 
 <h2>8. Ограничения</h2>
 <ul>
