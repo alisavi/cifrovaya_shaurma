@@ -53,15 +53,35 @@ def read_units(path) -> dict[tuple[str, str], str]:
     }
 
 
+def read_labels(path) -> dict[tuple[str, str], str]:
+    """Read feature/level -> human label from an existing ML-A factor table."""
+    try:
+        frame = pd.read_csv(path, encoding="utf-8-sig", keep_default_na=False)
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        return {}
+    if not {"feature", "level", "factor"}.issubset(frame.columns):
+        return {}
+    return {
+        (str(row["feature"]), str(row["level"])): str(row["factor"])
+        for _, row in frame.iterrows()
+        if str(row["factor"]).strip()
+    }
+
+
 def canonical_factor_table(
     factors: pd.DataFrame,
     units: Mapping[tuple[str, str], str] | None = None,
+    labels: Mapping[tuple[str, str], str] | None = None,
 ) -> pd.DataFrame:
     """Map the ML-B table to the public `out/factors.csv` schema."""
     frame = factors.copy()
     frame["level"] = frame["level"].fillna("").astype(str)
     frame["unit"] = [
         (units or {}).get((str(feature), str(level)), "")
+        for feature, level in zip(frame["feature"], frame["level"])
+    ]
+    frame["factor"] = [
+        (labels or {}).get((str(feature), str(level)), str(feature))
         for feature, level in zip(frame["feature"], frame["level"])
     ]
     frame["n"] = frame["n_train"].astype(int)
@@ -76,10 +96,13 @@ def canonical_factor_table(
     return frame[CANONICAL_COLUMNS].reset_index(drop=True)
 
 
-def write_canonical_factors(factors: pd.DataFrame, out_path, units_path=None) -> pd.DataFrame:
+def write_canonical_factors(
+    factors: pd.DataFrame, out_path, units_path=None, labels_path=None
+) -> pd.DataFrame:
     """Write the train-only table to `out/factors.csv`; return the frame."""
     units = read_units(units_path) if units_path is not None else {}
-    table = canonical_factor_table(factors, units)
+    labels = read_labels(labels_path or units_path) if (labels_path or units_path) else {}
+    table = canonical_factor_table(factors, units, labels)
     table.to_csv(
         out_path,
         index=False,

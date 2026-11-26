@@ -1132,10 +1132,14 @@ def load_mlb_factors(fallback: pd.DataFrame):
     if "n_train" not in raw.columns:
         return None, None
     units = {
-        (str(row["feature"]), str(row["level"])): str(row["unit"])
+        (str(row["feature"]), "" if pd.isna(row["level"]) else str(row["level"])): str(row["unit"])
         for _, row in fallback.iterrows()
     }
-    table = canonical_factor_table(raw, units)
+    labels = {
+        (str(row["feature"]), "" if pd.isna(row["level"]) else str(row["level"])): str(row["factor"])
+        for _, row in fallback.iterrows()
+    }
+    table = canonical_factor_table(raw, units, labels)
     stability = json.loads(stability_path.read_text(encoding="utf-8"))
     return table, stability
 

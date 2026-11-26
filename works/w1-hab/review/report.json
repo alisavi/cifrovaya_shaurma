@@ -1,6 +1,6 @@
 {
   "rubric": "practice-v1",
-  "checked_at": "2026-11-26T08:13:26+00:00",
+  "checked_at": "2026-11-26T16:17:32+00:00",
   "artifacts": {
     "works/w1-hab/spec.md": "ok",
     "works/w1-hab/data/PASSPORT.md": "ok",
@@ -226,7 +226,7 @@
       "status": "ok",
       "weight": 0.08,
       "evidence": [
-        "report.html существует: 392421 байт",
+        "report.html существует: 463932 байт",
         "секция «Традиционный способ»: найдена в HTML",
         "согласован с metrics.json / factors.csv: AUC и n модели присутствуют в отчёте"
       ],
@@ -234,7 +234,7 @@
         {
           "check": "report.html существует",
           "status": "ok",
-          "evidence": "392421 байт"
+          "evidence": "463932 байт"
         },
         {
           "check": "секция «Традиционный способ»",
