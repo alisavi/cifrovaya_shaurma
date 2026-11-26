@@ -1,0 +1,19 @@
+{
+  "sha256": "8082f3aa575d00bf",
+  "shape": [
+    100,
+    105
+  ],
+  "targets": {
+    "y_obesity": 0.5,
+    "y_hypertension": 0.5454545454545454,
+    "y_high_hr": 0.20202020202020202,
+    "y_sleep_disturbance": 0.31
+  },
+  "n_missing_targets": {
+    "y_obesity": 0,
+    "y_hypertension": 1,
+    "y_high_hr": 1,
+    "y_sleep_disturbance": 0
+  }
+}

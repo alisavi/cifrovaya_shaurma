@@ -1,0 +1,27 @@
+# Cleaning log — AI4FoodDB
+
+- DS1 raw: (291, 11)
+- DS1: BIA placeholder 0.002-0.005 -> NA: 191
+- DS1: visceral_fat_level > 59 -> NA: 1, id/visit: [{'id': 'A4F_62344', 'visit': 2}]
+- DS1: hip_cm < 50 -> NA: 1, id/visit: [{'id': 'A4F_13368', 'visit': 0}]
+- DS1: basal_metabolism < 800 -> NA: 2, id/visit: [{'id': 'A4F_40008', 'visit': 2}, {'id': 'A4F_71665', 'visit': 0}]
+- DS6 raw: (291, 5)
+- DS6: DBP < 30 -> NA: 1, ids: ['A4F_53145']
+- DS4: visit {1: 100, 3: 93} -> {0: 100, 3: 93}
+- DS7: visit {2.0: 98, 1.0: 50, 3.0: 47} -> {2.0: 98, 0.0: 50, 3.0: 47}
+- DS8: visit {2.0: 98, 1.0: 50, 3.0: 47} -> {2.0: 98, 0.0: 50, 3.0: 47}
+- DS9: visit {2.0: 98, 1.0: 50, 3.0: 47} -> {2.0: 98, 0.0: 50, 3.0: 47}
+- DS4: crp_mg_dl censored '<' -> NA: 3 (LOD=0.003)
+- DS4: ige_ui_ml censored '<' -> NA: 15 (LOD=2.0)
+- DS2: daily_meals -> ordinal, NaN=0
+- DS2: cigarettes_day -> ordinal, NaN=0
+- DS2: alcohol -> ordinal, NaN=1
+- DS2: exercise -> ordinal, NaN=0
+- DS2: defecation -> ordinal, NaN=0
+- DS2: urination -> ordinal, NaN=0
+- merged: (100, 101)
+- y_obesity: доля '1' = 0.500, NaN = 0
+- y_hypertension: доля '1' = 0.545, NaN = 1
+- y_high_hr: доля '1' = 0.202, NaN = 1
+- y_sleep_disturbance: доля '1' = 0.310, NaN = 0
+- saved: data/processed/ai4_clean.parquet, sha256=8082f3aa575d00bf
