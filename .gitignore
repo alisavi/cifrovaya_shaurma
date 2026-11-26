@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # Секреты и локальное окружение
 .env
 .env.*
@@ -26,3 +27,6 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+=======
+.directory
+>>>>>>> Stashed changes
