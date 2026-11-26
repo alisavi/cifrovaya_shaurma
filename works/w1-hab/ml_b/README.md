@@ -18,9 +18,12 @@ python -m unittest discover -s ml_b/tests -v
 | Файл | Что внутри |
 |---|---|
 | `handover/factors_mlb.csv` | β, OR, 95% bootstrap CI, direction, strength, устойчивость знака, вывод |
-| `handover/stability.json` | seed’ы, подвыборки, CV, ранжирование блоков, KT-3, сверка с `out/factors.csv` |
+| `out/factors.csv` | **каноническая** таблица OR/CI (train-only) в публичной схеме + `ci_scope`, `n_boot`, `sign_stability`, `conclusion` |
+| `handover/stability.json` | seed’ы, подвыборки, CV, ранжирование блоков, KT-3 |
 | `handover/MLB_SUMMARY.md` | человекочитаемая сводка ML-B |
+| `handover/report_mlb_section.html` | готовый HTML-фрагмент для обоих отчётов |
 | `report/importance_ci.svg` | важность блоков с 95% CI (без matplotlib) |
+| `out/metrics.json` | секция `ml_b` (ci_scope, n_boot, seed/подвыборки/CV, ranking) |
 
 ## Метод
 
@@ -38,14 +41,17 @@ python -m unittest discover -s ml_b/tests -v
   альтернативного split’а, сравнение с `handover/importance_blocks.csv`.
 - **KT-3:** сверка направления и значимости с `handover/kt3_consistency.csv`.
 
-## Важное расхождение
+## Канонический CI
 
-`out/factors.csv` ML-A считает β и bootstrap-CI на **полной выборке** (n = 3984,
-включая test). Handover требует ресэмплировать **train**. Поэтому ML-B считает
-OR/CI на n = 2988; у части факторов (`phq_mean`, `log_kcal`, отдельные уровни
-`RIDRETH1`) CI на train включает 1. Это зафиксировано в `MLB_SUMMARY.md` и
-`stability.json → mla_comparison`. Для отчёта нужно выбрать одну таблицу OR/CI и
-явно указать её выборку.
+`out/factors.csv` — **каноническая** таблица: β и bootstrap-CI посчитаны только
+на train (n = 2988), test в ресэмплирование не входит; это же отражено в
+`ci_scope = train (n=2988; test excluded)`.
+
+Ранее ML-A писал в `out/factors.csv` β/CI на полной выборке (n = 3984, включая
+test). Эти числа больше не используются для OR/CI. Историческое сравнение
+сохранено в `stability.json → mla_comparison`; у части факторов (`phq_mean`,
+`log_kcal`, отдельные уровни `RIDRETH1`) train-CI включает 1, поэтому их
+направление — `unclear`. `MLB_SUMMARY.md` фиксирует, какой CI канонический.
 
 ## Windows и sha256
 

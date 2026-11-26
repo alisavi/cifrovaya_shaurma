@@ -1,6 +1,6 @@
 {
   "rubric": "practice-v1",
-  "checked_at": "2026-11-25T12:07:56+00:00",
+  "checked_at": "2026-11-26T08:13:26+00:00",
   "artifacts": {
     "works/w1-hab/spec.md": "ok",
     "works/w1-hab/data/PASSPORT.md": "ok",
@@ -194,7 +194,7 @@
         "направление по каждому фактору: строк: 24",
         "мера силы: strength + |coef|",
         "95% CI: ci_low/ci_high в factors.csv",
-        "неинформативные не выданы за значимые: direction=unclear: 10 из 24 (оставлены как unclear)"
+        "неинформативные не выданы за значимые: direction=unclear: 13 из 24 (оставлены как unclear)"
       ],
       "checks": [
         {
@@ -215,7 +215,7 @@
         {
           "check": "неинформативные не выданы за значимые",
           "status": "ok",
-          "evidence": "direction=unclear: 10 из 24 (оставлены как unclear)"
+          "evidence": "direction=unclear: 13 из 24 (оставлены как unclear)"
         }
       ],
       "blockers": []
@@ -226,7 +226,7 @@
       "status": "ok",
       "weight": 0.08,
       "evidence": [
-        "report.html существует: 462491 байт",
+        "report.html существует: 392421 байт",
         "секция «Традиционный способ»: найдена в HTML",
         "согласован с metrics.json / factors.csv: AUC и n модели присутствуют в отчёте"
       ],
@@ -234,7 +234,7 @@
         {
           "check": "report.html существует",
           "status": "ok",
-          "evidence": "462491 байт"
+          "evidence": "392421 байт"
         },
         {
           "check": "секция «Традиционный способ»",

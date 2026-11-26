@@ -37,6 +37,8 @@ python handover/importance.py --repeats 1000
 5. Сравнить ранжирование блоков с `importance_blocks.csv` и с
    `kt3_consistency.md`.
 6. Оформить `out/factors.csv` (β, 95% CI, вывод) и диаграмму важности с CI.
+   Канонический CI — **train-only** (ML-B, n = 2988); `out/factors.csv`
+   перезаписывается из `handover/factors_mlb.csv`, а не из полной выборки.
 
 ## Важно
 

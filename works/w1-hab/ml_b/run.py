@@ -43,11 +43,17 @@ from ml_b.config import (  # noqa: E402
     HANDOVER,
     N_BOOT,
     N_SUBSAMPLES,
+    OUT,
     REPORT,
     SEEDS,
     SUBSAMPLE_FRACTION,
 )
 from ml_b.data import load_split, verify_handover  # noqa: E402
+from ml_b.integration import (  # noqa: E402
+    build_mlb_metrics,
+    build_report_section,
+    write_canonical_factors,
+)
 
 
 def _json_default(value):
@@ -89,6 +95,16 @@ def _summary_markdown(
         f"**Задача:** {contract['task']}, владелец ML-A → получатель ML-B.",
         f"**Сгенерировано:** {stability_payload['meta']['created_at']}.",
         "**Данные:** только handover ML-A; test не использовался для обучения.",
+        "",
+        "## Канонический CI",
+        "",
+        f"- Канонический интервал — **train-only**: n = "
+        f"{stability_payload['meta']['n_train']}, bootstrap "
+        f"{stability_payload['bootstrap']['n_boot']} ресэмплов, test исключён.",
+        "- Именно эта таблица записана в `out/factors.csv` "
+        "(`ci_scope = train; test excluded`). `handover/factors_mlb.csv` — "
+        "исходная ML-B-выгрузка с теми же числами.",
+        "- Полная выборка (n = 3984) больше **не** используется для OR/CI.",
         "",
         "## Контракт и модель",
         "",
@@ -162,14 +178,15 @@ def _summary_markdown(
     if mla_comparison:
         lines += [
             "",
-            "## Расхождение с `out/factors.csv` (важно)",
+            "## Историческое расхождение (легаси full-sample)",
             "",
-            "ML-A считает β/CI в `out/factors.csv` на **полной выборке** "
-            f"(n = {mla_comparison[0]['n_mla']}), включая test. Handover требует "
-            "bootstrap **только на train**; ML-B использует "
-            f"n = {mla_comparison[0]['n_mlb']}. Поэтому часть выводов меняется:",
+            "До канонизации `out/factors.csv` содержал β/CI ML-A на **полной "
+            f"выборке** (n = {mla_comparison[0]['n_mla']}), включая test. "
+            "Теперь `out/factors.csv` заменён на train-only ML-B "
+            f"(n = {mla_comparison[0]['n_mlb']}); таблица ниже сохранена только "
+            "как история различий:",
             "",
-            "| Фактор | ML-A, полная выборка | ML-B, train |",
+            "| Фактор | Легаси ML-A, full sample | Канонический ML-B, train |",
             "|---|---|---|",
         ]
         for item in mla_comparison:
@@ -183,10 +200,9 @@ def _summary_markdown(
             )
         lines += [
             "",
-            "Точечные направления не переворачиваются, но у части факторов CI "
-            "на train включает 1. Для отчёта нужно либо использовать ML-B-таблицу "
-            "как основную для OR/CI, либо явно указать, что CI в `out/factors.csv` "
-            "построены на полной выборке (это не соответствует handover).",
+            "В отчётах и `out/factors.csv` используется только правая колонка "
+            "(train-only). Расхождения по значимости — уточнение, а не "
+            "противоположный вывод.",
         ]
 
     unstable = factors[
@@ -219,6 +235,12 @@ def _summary_markdown(
         "",
         f"- `{written['factors'].relative_to(ROOT)}` — β, OR, 95% bootstrap CI, "
         "устойчивость знака, вывод.",
+        f"- `{written['canonical'].relative_to(ROOT)}` — каноническая таблица "
+        "train-only в публичной схеме (`ci_scope`, `n_boot`, `sign_stability`, "
+        "`conclusion`).",
+        f"- `{written['section'].relative_to(ROOT)}` — готовый HTML-фрагмент "
+        "для обоих отчётов.",
+        f"- `{written['metrics'].relative_to(ROOT)}` — секция `ml_b`.",
         f"- `{written['stability'].relative_to(ROOT)}` — полный JSON устойчивости.",
         f"- `{written['chart'].relative_to(ROOT)}` — важность блоков с CI.",
         "",
@@ -432,6 +454,15 @@ def main() -> int:
         float_format="%.10g",
     )
 
+    # Canonical public table: same schema as the old out/factors.csv, but the
+    # OR/CI columns now come from the train-only ML-B bootstrap.
+    canonical_path = OUT / "factors.csv"
+    canonical = write_canonical_factors(
+        factors,
+        canonical_path,
+        units_path=canonical_path,
+    )
+
     created_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     stability_payload = {
         "meta": {
@@ -512,10 +543,33 @@ def main() -> int:
         REPORT / "importance_ci.svg",
     )
 
+    section_path = HANDOVER / "report_mlb_section.html"
+    section_path.write_text(
+        build_report_section(stability_payload),
+        encoding="utf-8",
+    )
+
+    # Keep the public metrics file in sync with the canonical train-only CI.
+    metrics_path = OUT / "metrics.json"
+    metrics = {}
+    if metrics_path.exists():
+        try:
+            metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            metrics = {}
+    metrics["ml_b"] = build_mlb_metrics(stability_payload)
+    metrics_path.write_text(
+        json.dumps(metrics, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
     written = {
         "factors": factor_path,
+        "canonical": canonical_path,
         "stability": stability_path,
         "chart": chart_path,
+        "section": section_path,
+        "metrics": metrics_path,
     }
     summary_path = HANDOVER / "MLB_SUMMARY.md"
     summary_path.write_text(

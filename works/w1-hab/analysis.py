@@ -64,6 +64,12 @@ from ml_a.pipeline import (
     build_preprocessor,
     split_data,
 )
+from ml_b.integration import (
+    build_mlb_metrics,
+    build_report_section,
+    canonical_factor_table,
+    write_canonical_factors,
+)
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -989,7 +995,7 @@ def fig_b64(fig):
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def make_figures(primary, trad):
+def make_figures(primary, trad, factors=None):
     # block importance
     blocks = primary["blocks"]
     names = ["Питание", "Сон", "Стресс", "Активность", "Контроль"]
@@ -1010,7 +1016,7 @@ def make_figures(primary, trad):
     f_blocks = fig_b64(fig)
 
     # forest
-    f = primary["factors"]
+    f = factors if factors is not None else primary["factors"]
     f = f[f["block"].isin(["питание", "сон", "стресс", "активность"])].copy()
     f = f.drop_duplicates("feature").sort_values("perm_importance", ascending=False).head(10)
     f = f.iloc[::-1]
@@ -1116,15 +1122,38 @@ def make_figures(primary, trad):
     return {"blocks": f_blocks, "forest": f_forest, "trad": f_trad, "roc": f_roc, "dist": f_dist}
 
 
+def load_mlb_factors(fallback: pd.DataFrame):
+    """Return the canonical train-only ML-B factor table and stability JSON."""
+    factor_path = ROOT / "handover" / "factors_mlb.csv"
+    stability_path = ROOT / "handover" / "stability.json"
+    if not factor_path.exists() or not stability_path.exists():
+        return None, None
+    raw = pd.read_csv(factor_path, encoding="utf-8", keep_default_na=False)
+    if "n_train" not in raw.columns:
+        return None, None
+    units = {
+        (str(row["feature"]), str(row["level"])): str(row["unit"])
+        for _, row in fallback.iterrows()
+    }
+    table = canonical_factor_table(raw, units)
+    stability = json.loads(stability_path.read_text(encoding="utf-8"))
+    return table, stability
+
+
 def build_report(results, checker=None, runtime_seconds=None):
     primary = results["primary"]
     trad = results["traditional"]
     prep = results["prep"]
     brfss = results["brfss"]
     ai4 = results["ai4food"]
-    figs = make_figures(primary, trad)
 
-    f = primary["factors"]
+    report_factors, stability = load_mlb_factors(primary["factors"])
+    mlb_canonical = report_factors is not None
+    if report_factors is None:
+        report_factors = primary["factors"]
+    figs = make_figures(primary, trad, factors=report_factors)
+
+    f = report_factors
     main = f[f["block"].isin(["питание", "сон", "стресс", "активность"])].copy()
     main = main.drop_duplicates("feature").sort_values("perm_importance", ascending=False)
 
@@ -1255,6 +1284,40 @@ def build_report(results, checker=None, runtime_seconds=None):
     )
     ranking_txt = " → ".join(f"{block_labels[b]} {v:.4f}" for b, v in ranked)
 
+    mlb_section_html = ""
+    if stability:
+        mlb_section_html = f"""
+<div class="card">
+{build_report_section(stability)}
+</div>
+"""
+    if mlb_canonical:
+        stress_phrase = (
+            "слабая положительная связь"
+            if phq["direction"] == "positive"
+            else "направление не определено: 95% CI включает 1"
+        )
+        stress_conclusion = (
+            f"точечная положительная ассоциация (OR {phq['or_per_sd']:.2f}, "
+            f"95% CI {phq['ci_low']:.2f}–{phq['ci_high']:.2f}), но CI включает 1, "
+            "поэтому направление не определено"
+        )
+        ci_note = (
+            "канонические OR/CI — train-only (n = 2 988), test исключён; "
+            "полная таблица — <code>out/factors.csv</code>"
+        )
+    else:
+        stress_phrase = (
+            "слабая положительная связь"
+            if phq["direction"] == "positive"
+            else "направление не определено"
+        )
+        stress_conclusion = (
+            f"ассоциация OR {phq['or_per_sd']:.2f} "
+            f"(95% CI {phq['ci_low']:.2f}–{phq['ci_high']:.2f})"
+        )
+        ci_note = "полная таблица — <code>out/factors.csv</code>"
+
     html = f"""<!doctype html>
 <html lang="ru">
 <head>
@@ -1325,7 +1388,7 @@ li {{ margin:4px 0; }}
     <li><b>Наибольшая точечная важность — {block_labels[top_block].lower()}</b>: {primary['blocks'][top_block][0]:.4f} ROC AUC (95% CI {primary['blocks'][top_block][1]:.4f}–{primary['blocks'][top_block][2]:.4f}). Интервалы питания, сна и активности пересекаются, поэтому ранг между ними не объявляем. Блок контроля (возраст, раса и др.) ещё сильнее и служит ориентиром.</li>
     <li><b>Питание.</b> Калий как прокси овощей и фруктов: OR {pota['or_per_sd']:.2f} ({pota['ci_low']:.2f}–{pota['ci_high']:.2f}); жиры: OR {fat['or_per_sd']:.2f} ({fat['ci_low']:.2f}–{fat['ci_high']:.2f}); клетчатка: OR {fiber['or_per_sd']:.2f} ({fiber['ci_low']:.2f}–{fiber['ci_high']:.2f}).</li>
     <li><b>Сон.</b> Диагноз нарушения сна: OR {sleep_dx['or_per_sd']:.2f} ({sleep_dx['ci_low']:.2f}–{sleep_dx['ci_high']:.2f}); длительность: OR {sleep_h['or_per_sd']:.2f} ({sleep_h['ci_low']:.2f}–{sleep_h['ci_high']:.2f}) — направление длительности не определено.</li>
-    <li><b>Стресс.</b> Прокси PHQ-9: OR {phq['or_per_sd']:.2f} ({phq['ci_low']:.2f}–{phq['ci_high']:.2f}) — слабая положительная связь; permutation-вклад блока неотличим от нуля.</li>
+    <li><b>Стресс.</b> Прокси PHQ-9: OR {phq['or_per_sd']:.2f} ({phq['ci_low']:.2f}–{phq['ci_high']:.2f}) — {stress_phrase}; permutation-вклад блока неотличим от нуля.</li>
     <li><b>Активность.</b> Сидячее время: OR {sed['or_per_sd']:.2f} ({sed['ci_low']:.2f}–{sed['ci_high']:.2f}); MVPA: OR {mvpa['or_per_sd']:.2f} ({mvpa['ci_low']:.2f}–{mvpa['ci_high']:.2f}) — неясно.</li>
     <li>Модель умеренно лучше константы: AUC {primary['model']['roc_auc']:.3f} против 0.500; это описательная, а не прогностическая модель.</li>
     <li>Внешние массивы: в BRFSS высокий стресс OR {brfss['terms']['high_stress']['or']:.2f} ({brfss['terms']['high_stress']['ci_low']:.2f}–{brfss['terms']['high_stress']['ci_high']:.2f}), активность OR {brfss['terms']['active']['or']:.2f} ({brfss['terms']['active']['ci_low']:.2f}–{brfss['terms']['active']['ci_high']:.2f}); в AI4FoodDB связь стресса не определена (OR {ai4['terms']['stress_score']['or']:.2f}, CI включает 1).</li>
@@ -1408,6 +1471,8 @@ li {{ margin:4px 0; }}
   <p class="small">AUC {primary['model']['roc_auc']:.3f} — умеренная дискриминация. Этого достаточно, чтобы сравнивать вклады блоков, но недостаточно для индивидуального прогноза.</p>
 </div>
 
+{mlb_section_html}
+
 <div class="card">
   <h2>6. Факторы: направление, сила, 95% CI</h2>
   <img src="data:image/png;base64,{figs['blocks']}" alt="Важность блоков">
@@ -1415,7 +1480,7 @@ li {{ margin:4px 0; }}
   <p>Ранжирование по точечным оценкам: {ranking_txt}. Все три интервала не включают ноль, но пересекаются, поэтому превосходство одного блока над другим не доказано. У стресса CI {primary['blocks']['стресс'][1]:.4f}–{primary['blocks']['стресс'][2]:.4f} — вклад неотличим от нуля. Контроль (возраст, раса и др.) ожидаемо важен и служит ориентиром.</p>
   <img src="data:image/png;base64,{figs['forest']}" alt="Forest plot">
   <table><thead><tr><th>Фактор</th><th>Блок</th><th>OR (95% CI)</th><th>Направление</th><th>Сила</th><th>Δ AUC</th></tr></thead><tbody>{factors_rows}</tbody></table>
-  <p class="small muted">OR — на 1 SD для числовых признаков (после log1p) и «уровень против референса» для категорий. Полная таблица — <code>out/factors.csv</code>.</p>
+  <p class="small muted">OR — на 1 SD для числовых признаков (после log1p) и «уровень против референса» для категорий. {ci_note}.</p>
   <h3>Вторичные исходы</h3>
   <table><thead><tr><th>Исход</th><th>n</th><th>Доля событий</th><th>AUC</th></tr></thead><tbody>{sec_rows}</tbody></table>
   <p class="small muted">Secondary: гипертензия 130/80, пульс ≥80, диагностированное нарушение сна. Sensitivity: гипертензия 140/90 и пульс &gt;90.</p>
@@ -1480,7 +1545,7 @@ li {{ margin:4px 0; }}
     <li><b>Питание — точечно самый сильный блок привычек</b> в этой выборке, но его CI пересекается с CI сна и активности: ранг не устойчив. Гипотеза для проверки: качество рациона (калий/овощи-фрукты, жиры, клетчатка) может быть связано с ожирением сильнее, чем сон, стресс и активность.</li>
     <li><b>У сна связь с ожирением сильнее для диагностированного нарушения сна</b> (OR {sleep_dx['or_per_sd']:.2f}, 95% CI {sleep_dx['ci_low']:.2f}–{sleep_dx['ci_high']:.2f}), чем для длительности (OR {sleep_h['or_per_sd']:.2f}, CI включает 1); это ассоциация, требующая продольной проверки.</li>
     <li><b>У активности связь с ожирением наблюдается в основном для сидячего времени</b>: OR {sed['or_per_sd']:.2f} ({sed['ci_low']:.2f}–{sed['ci_high']:.2f}); MVPA — OR {mvpa['or_per_sd']:.2f} ({mvpa['ci_low']:.2f}–{mvpa['ci_high']:.2f}). Это может быть следствием измерения и обратной причинности.</li>
-    <li><b>Стресс-прокси даёт слабую положительную связь</b> в NHANES (OR {phq['or_per_sd']:.2f}, 95% CI {phq['ci_low']:.2f}–{phq['ci_high']:.2f}) и в BRFSS (OR {brfss['terms']['high_stress']['or']:.2f}); но permutation-вклад блока в NHANES неотличим от нуля, а в AI4FoodDB связь не определена. Гипотеза: связь слабая, возможно нелинейная, и требует лучшей шкалы стресса.</li>
+    <li><b>Стресс-прокси:</b> в NHANES {stress_conclusion}; в BRFSS (OR {brfss['terms']['high_stress']['or']:.2f}) связь положительная, но permutation-вклад блока в NHANES неотличим от нуля, а в AI4FoodDB связь не определена. Гипотеза: связь слабая, возможно нелинейная, и требует лучшей шкалы стресса.</li>
     <li>Все утверждения — ассоциации. Для причинных выводов нужны продольные данные, инструменты и контроль конфаундеров.</li>
   </ol>
 </div>
@@ -1509,6 +1574,18 @@ def build_engineer_report(results, figs, runtime_seconds=None, checker=None):
     brfss = results["brfss"]
     ai4 = results["ai4food"]
 
+    report_factors, stability = load_mlb_factors(primary["factors"])
+    if report_factors is None:
+        report_factors = primary["factors"]
+    mlb_section_html = build_report_section(stability) if stability else ""
+    mlb_canonical = stability is not None
+    ci_note = (
+        "Канонические OR/CI — train-only (n = 2 988), test исключён; "
+        "<code>out/factors.csv</code>."
+        if mlb_canonical
+        else "OR/CI — полная выборка; <code>out/factors.csv</code>."
+    )
+
     direct_ru = {"positive": "положительное", "negative": "отрицательное", "unclear": "неясное"}
     strength_ru = {"weak": "слабая", "moderate": "умеренная", "strong": "сильная"}
     block_labels = {"питание": "Питание", "сон": "Сон", "стресс": "Стресс", "активность": "Активность", "контроль": "Контроль"}
@@ -1536,7 +1613,7 @@ def build_engineer_report(results, figs, runtime_seconds=None, checker=None):
         f"<td>{strength_ru.get(r['strength'], r['strength'])}</td>"
         f"<td>{r['perm_importance']:.4f}</td>"
         "</tr>"
-        for _, r in primary["factors"].iterrows()
+        for _, r in report_factors.iterrows()
     )
     block_rows = "\n".join(
         f"<tr><td>{block_labels[k]}</td><td>{primary['blocks'][k][0]:.4f}</td>"
@@ -1677,7 +1754,7 @@ def build_engineer_report(results, figs, runtime_seconds=None, checker=None):
 <img src="data:image/png;base64,{figs['roc']}" alt="ROC">
 
 <h2>4. Факторы: β, OR, 95% CI</h2>
-<p class="small">β — стандартизованный коэффициент логита; OR — на 1 SD (числовые после log1p) или уровень против референса. p — по bootstrap SE (1000 ресэмплов). ΔAUC — падение ROC AUC при перемешивании закодированного признака (1000 повторов).</p>
+<p class="small">β — стандартизованный коэффициент логита; OR — на 1 SD (числовые после log1p) или уровень против референса. p — по bootstrap SE (1000 ресэмплов). {ci_note} ΔAUC — падение ROC AUC при перемешивании закодированного признака (1000 повторов).</p>
 <table><thead><tr><th>Фактор</th><th>Блок</th><th>β</th><th>OR (95% CI)</th><th>p</th><th>Направление</th><th>Сила</th><th>ΔAUC</th></tr></thead><tbody>{factor_rows}</tbody></table>
 <img src="data:image/png;base64,{figs['forest']}" alt="Forest plot">
 
@@ -1688,6 +1765,8 @@ def build_engineer_report(results, figs, runtime_seconds=None, checker=None):
 <h3>Вторичные исходы</h3>
 <table><thead><tr><th>Исход</th><th>n</th><th>Доля событий</th><th>AUC</th></tr></thead><tbody>{sec_rows}</tbody></table>
 <p class="small">Secondary: гипертензия 130/80, пульс ≥80, нарушение сна. Sensitivity: 140/90, пульс &gt;90.</p>
+
+{mlb_section_html}
 
 <h2>6. Традиционный способ</h2>
 <p class="small">Доли ожирения по группам, простой OR и χ² без поправок. Клетчатка — на 1000 ккал.</p>
@@ -1770,6 +1849,17 @@ def main():
 
     # factors.csv
     primary["factors"].to_csv(OUT / "factors.csv", index=False, encoding="utf-8-sig")
+    # If ML-B has already run, the train-only table is canonical and replaces
+    # the full-sample ML-A table in the public artifact.
+    mlb_factors_path = ROOT / "handover" / "factors_mlb.csv"
+    if mlb_factors_path.exists():
+        mlb_raw = pd.read_csv(mlb_factors_path, encoding="utf-8", keep_default_na=False)
+        if "n_train" in mlb_raw.columns:
+            write_canonical_factors(
+                mlb_raw,
+                OUT / "factors.csv",
+                units_path=OUT / "factors.csv",
+            )
 
     # metrics.json
     metrics = {
@@ -1843,6 +1933,11 @@ def main():
             "scikit-learn": __import__("sklearn").__version__,
         },
     }
+    mlb_stability_path = ROOT / "handover" / "stability.json"
+    if mlb_stability_path.exists():
+        metrics["ml_b"] = build_mlb_metrics(
+            json.loads(mlb_stability_path.read_text(encoding="utf-8"))
+        )
     (OUT / "metrics.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8"
     )

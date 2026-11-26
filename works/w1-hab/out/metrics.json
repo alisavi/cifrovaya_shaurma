@@ -1,7 +1,7 @@
 {
   "project": "w1-hab",
-  "generated_at": "2026-11-25T12:07:48+00:00",
-  "runtime_seconds": 80.4,
+  "generated_at": "2026-11-26T08:08:04+00:00",
+  "runtime_seconds": 201.0,
   "seed": 42,
   "target": {
     "name": "obesity",
@@ -333,20 +333,20 @@
     "brfss": {
       "n": 50000,
       "event_rate": 0.34574,
-      "auc": 0.6108819391618814,
-      "auc_cv": 0.6097481220862723,
+      "auc": 0.6108819258995077,
+      "auc_cv": 0.609708850411552,
       "terms": {
         "high_stress": {
           "or": 1.2696994003578894,
           "ci_low": 1.20207325587652,
           "ci_high": 1.3411300512576971,
-          "p": 1.2234007261272804e-17
+          "p": 1.2234007261272626e-17
         },
         "active": {
-          "or": 0.5723916873320088,
-          "ci_low": 0.5467474470829499,
-          "ci_high": 0.5992387261701789,
-          "p": 8.54912098444791e-126
+          "or": 0.572391687332009,
+          "ci_low": 0.54674744708295,
+          "ci_high": 0.599238726170179,
+          "p": 8.549120984445962e-126
         }
       },
       "note": "BRFSS 2024 содержит стресс (дни плохого психического здоровья), активность и ИМТ; сна и макронутриентов в основном массиве нет."
@@ -433,7 +433,7 @@
     "test": "handover/test_set.csv",
     "contract": "handover/contract.json",
     "kt3": "handover/kt3_consistency.md",
-    "model_sha256": "5d6b865e62a57f9edb1e066749dbff33b6973d2c5a99f31e4ea6beb1e9e36cc1",
+    "model_sha256": "71d65fb633a7d0a0f5da288c1b95f809efd0ec41db90dd0f794672bb97caeb2f",
     "model_dataset": "cea4b68e0a62cae195ce2cb7d1ef6c091ceac2f101e048d6477340fb4950e29f",
     "test_set": "00d01864f9e3fc9aeb215691083db3a27528345482a8fc56b90538ee15f91731"
   },
@@ -450,5 +450,73 @@
     "pandas": "2.2.2",
     "numpy": "1.26.4",
     "scikit-learn": "1.6.0"
+  },
+  "ml_b": {
+    "ci_scope": "train only",
+    "n_boot": 1000,
+    "n_train": 2988,
+    "n_test": 996,
+    "canonical_factors": "out/factors.csv",
+    "conclusion": "Питание точечно первое, но ранг не доказан",
+    "seed_stability": {
+      "seeds": [
+        42,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "auc_mean": 0.6676057262936697,
+      "auc_sd": 0.016579243513001742,
+      "auc_min": 0.6450945626477541,
+      "auc_max": 0.6954294720252168,
+      "sign_consistency_mean": 0.9583333333333334,
+      "sign_consistency_min": 0.6
+    },
+    "subsample_stability": {
+      "n_subsamples": 200,
+      "fraction": 0.8,
+      "sign_consistency_mean": 0.9608333333333333,
+      "sign_consistency_min": 0.71
+    },
+    "cv": {
+      "folds": 5,
+      "auc_mean": 0.6647323228211984,
+      "auc_sd": 0.015673776286217446,
+      "auc_folds": [
+        0.6859944647555267,
+        0.6535574765663262,
+        0.6771107390576417,
+        0.6532407301638072,
+        0.65375820356269
+      ]
+    },
+    "ranking": {
+      "reference_order": [
+        "контроль",
+        "питание",
+        "сон",
+        "активность",
+        "стресс"
+      ],
+      "control_first_share": 1.0,
+      "exact_order_match": 0.6,
+      "kendall_tau_mean": 0.9199999999999999,
+      "kendall_tau_min": 0.7999999999999999,
+      "habit_exact_order_match": 0.6,
+      "habit_kendall_tau_mean": 0.8666666666666666,
+      "mean_rank": {
+        "контроль": 1.0,
+        "питание": 2.0,
+        "сон": 3.4,
+        "активность": 3.6,
+        "стресс": 5.0
+      }
+    }
   }
 }

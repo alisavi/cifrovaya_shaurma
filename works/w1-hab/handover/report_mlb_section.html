@@ -1,0 +1,22 @@
+<h2>ML-B: bootstrap CI (train) и устойчивость</h2>
+<p><b>Канонический CI — train-only (n = 2988)</b>: коэффициенты
+пересчитаны на train, test в bootstrap не входит. Таблица с этими OR/CI —
+<code>out/factors.csv</code>; исходная ML-B-выгрузка — <code>handover/factors_mlb.csv</code>.</p>
+<ul>
+  <li><b>10 seed’ов</b> (альтернативные стратифицированные split’ы):
+      AUC <b>0.668 ± 0.017</b>
+      (min 0.645, max 0.695).</li>
+  <li><b>200 подвыборок</b> по 80% train:
+      знак устойчив в среднем <b>96%</b>,
+      минимум <b>71%</b>.</li>
+  <li><b>CV 5-fold на train</b>: AUC <b>0.665 ± 0.016</b>.</li>
+  <li><b>Ранжирование блоков</b>: контроль первый в
+      100% split’ов; порядок привычек совпал с ML-A
+      в 60% случаев; Kendall τ =
+      <b>0.92</b> (для привычек τ =
+      0.87).</li>
+  <li><b>Вывод:</b> питание точечно первое среди привычек, но ранг не доказан:
+      интервалы пересекаются, а порядок воспроизводится не полностью.</li>
+</ul>
+<p><a href="importance_ci.svg">importance_ci.svg</a> — важность блоков с 95% CI.</p>
+<img src="importance_ci.svg" alt="Важность блоков с 95% CI (ML-A permutation importance)">
